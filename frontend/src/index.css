@@ -1,0 +1,183 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    @apply bg-[#070b14] text-slate-100 antialiased selection:bg-cyan-500 selection:text-white min-h-screen overflow-x-hidden;
+  }
+
+  code, pre {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* =========================================================
+   PREMIUM GLASSMORPHYSIC DESIGN SYSTEM
+   ========================================================= */
+
+/* Primary Frosted Glass Panel */
+.glass-panel {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(11, 17, 33, 0.7);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 10px 30px -10px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Deep Glass for darker contrast */
+.glass-panel-deep {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%), rgba(6, 10, 20, 0.82);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 
+    0 20px 40px -15px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+}
+
+/* Interactive Glass Cards with Specular Border Glow on Hover */
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-panel-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 
+    0 20px 35px -10px rgba(6, 182, 212, 0.22),
+    0 0 25px -5px rgba(56, 189, 248, 0.15),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Frosted Glass Inputs */
+.glass-input {
+  background: rgba(13, 20, 38, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-input:focus {
+  background: rgba(15, 23, 44, 0.75);
+  border-color: rgba(56, 189, 248, 0.6);
+  outline: none;
+  box-shadow: 
+    0 0 0 3px rgba(6, 182, 212, 0.25),
+    0 0 20px -3px rgba(56, 189, 248, 0.3),
+    inset 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Translucent Glass Buttons */
+.glass-btn {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%), rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 
+    0 4px 14px 0 rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.08) 100%), rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Frosted Primary Neon Button */
+.glass-btn-primary {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.9) 0%, rgba(37, 99, 235, 0.85) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 8px 24px -4px rgba(6, 182, 212, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-btn-primary:hover {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.95) 0%, rgba(59, 130, 246, 0.9) 100%);
+  box-shadow: 
+    0 12px 30px -4px rgba(6, 182, 212, 0.6),
+    0 0 20px rgba(56, 189, 248, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+/* Frosted Emerald Button */
+.glass-btn-emerald {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(13, 148, 136, 0.85) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 8px 24px -4px rgba(16, 185, 129, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-btn-emerald:hover {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.95) 0%, rgba(20, 184, 166, 0.9) 100%);
+  box-shadow: 
+    0 12px 30px -4px rgba(16, 185, 129, 0.6),
+    0 0 20px rgba(52, 211, 153, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+/* Glass Pills & Badges */
+.glass-pill {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Subtle Animated Ambient Mesh Orbs */
+@keyframes floatSlow1 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(40px, -30px) scale(1.08); }
+}
+
+@keyframes floatSlow2 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(-30px, 35px) scale(1.06); }
+}
+
+@keyframes floatSlow3 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(30px, 40px) scale(0.95); }
+}
+
+.animate-float-1 {
+  animation: floatSlow1 18s ease-in-out infinite;
+}
+.animate-float-2 {
+  animation: floatSlow2 22s ease-in-out infinite;
+}
+.animate-float-3 {
+  animation: floatSlow3 26s ease-in-out infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(10, 15, 30, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.5);
+}
