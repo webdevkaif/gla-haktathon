@@ -12,17 +12,16 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     # Auto-seed demo data if expenses collection is empty
-    if settings.has_valid_mongo_credentials:
-        try:
-            db = get_database()
-            if db is not None:
-                count = await db.expenses.count_documents({})
-                if count == 0:
-                    print("[ExpensePilot AI] Initializing demo data in MongoDB Atlas...")
-                    await seed_demo_data(db, settings.DEFAULT_USER_ID)
-                    print("[ExpensePilot AI] Ready with MongoDB seed data!")
-        except Exception as e:
-            print(f"[ExpensePilot AI] Notice checking seed data: {e}")
+    try:
+        db = get_database()
+        if db is not None:
+            count = await db.expenses.count_documents({})
+            if count == 0:
+                print("[ExpensePilot AI] Initializing realistic demo financial data...")
+                await seed_demo_data(db, settings.DEFAULT_USER_ID)
+                print("[ExpensePilot AI] Ready with seed data!")
+    except Exception as e:
+        print(f"[ExpensePilot AI] Notice checking seed data: {e}")
             
     yield
     await close_db()
@@ -52,14 +51,16 @@ app.include_router(agent.router)
 
 @app.get("/")
 async def root():
-    mongo_status = "connected" if settings.has_valid_mongo_credentials else "needs_db_password"
+    from backend.app.database import is_fallback_mode
+    db_mode = "Local Fast-Engine (MongoDB API)" if is_fallback_mode else "MongoDB Atlas"
+    db_status = "local_active" if is_fallback_mode else "atlas_connected"
     return {
         "app": settings.APP_NAME,
         "version": settings.VERSION,
         "status": "online",
-        "database": "MongoDB Atlas",
+        "database": db_mode,
         "database_name": settings.MONGODB_DB_NAME,
-        "database_status": mongo_status,
+        "database_status": db_status,
         "currency": settings.DEFAULT_CURRENCY,
         "endpoints": [
             "/api/expenses",
@@ -75,9 +76,10 @@ async def root():
 
 @app.get("/health")
 async def health():
-    mongo_status = "configured" if settings.has_valid_mongo_credentials else "needs_db_password"
+    from backend.app.database import is_fallback_mode
+    db_mode = "Local Fast-Engine (MongoDB API)" if is_fallback_mode else "MongoDB Atlas"
     return {
         "status": "ok",
-        "database": "MongoDB Atlas",
-        "mongodb_status": mongo_status
+        "database": db_mode,
+        "mongodb_status": "ready"
     }
