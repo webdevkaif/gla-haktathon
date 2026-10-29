@@ -105,3 +105,4 @@ export async function verifyExpenseIntegrity(expenseData, expectedHash) {
   const seal = await generateExpenseIntegritySeal(expenseData, expenseData.user_id);
   return seal.payload_hash === expectedHash;
 }
+

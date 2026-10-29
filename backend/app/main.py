@@ -7,7 +7,7 @@ from backend.app.database import init_db, close_db, get_database
 from backend.app.routers import (
     users, claims, invoices, approvals, escalations,
     audit, policies, dashboard, agent, notifications,
-    expenses, analytics, budgets, goals
+    expenses, analytics, budgets, goals, anomalies
 )
 from backend.app.services.seed_data import seed_enterprise_data, seed_demo_data
 from backend.app.services.workflow import check_and_send_due_reminders
@@ -94,6 +94,7 @@ app.include_router(expenses.router)
 app.include_router(analytics.router)
 app.include_router(budgets.router)
 app.include_router(goals.router)
+app.include_router(anomalies.router)
 
 @app.get("/api/system/db-status")
 async def get_system_database_status():

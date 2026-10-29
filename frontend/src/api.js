@@ -458,3 +458,13 @@ export async function reconnectAtlasDatabase() {
   return res.json();
 }
 
+export async function fetchAnomalyDetections(month = "2026-10", userId = "user_default") {
+  const query = new URLSearchParams();
+  if (month) query.append("month", month);
+  if (userId) query.append("user_id", userId);
+
+  const res = await fetch(`${API_BASE}/anomalies/detect?${query.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch financial anomaly detections");
+  return res.json();
+}
+

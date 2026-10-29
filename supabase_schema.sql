@@ -148,3 +148,4 @@ CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON public.expenses (user_id, d
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON public.expenses (user_id, category);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_month ON public.budgets (user_id, month);
 CREATE INDEX IF NOT EXISTS idx_saving_goals_user ON public.saving_goals (user_id);
+

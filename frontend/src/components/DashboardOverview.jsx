@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -31,6 +31,7 @@ import {
   Bar 
 } from 'recharts';
 import { formatCurrency, formatPercent, getCategoryColor } from '../utils/formatters';
+import { fetchAnomalyDetections } from '../api';
 import AnimeAgentCinemaHUD from './AnimeAgentCinemaHUD';
 import NarutoShinobiJutsuHUD from './NarutoShinobiJutsuHUD';
 import GhibliMeadowHUD from './GhibliMeadowHUD';
@@ -46,6 +47,27 @@ export default function DashboardOverview({
   onTogglePhoneAlerts 
 }) {
   const [hudTheme, setHudTheme] = useState('GHIBLI'); // 'GHIBLI', 'NARUTO', or 'CYBER'
+  const [anomalyReport, setAnomalyReport] = useState(null);
+  const [isAnomalyLoading, setIsAnomalyLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAnomalies() {
+      try {
+        setIsAnomalyLoading(true);
+        const data = await fetchAnomalyDetections(summary?.month || '2026-10');
+        if (isMounted) setAnomalyReport(data);
+      } catch (err) {
+        console.error('[PyOD Isolation Forest Error]', err);
+      } finally {
+        if (isMounted) setIsAnomalyLoading(false);
+      }
+    }
+    if (summary) {
+      loadAnomalies();
+    }
+    return () => { isMounted = false; };
+  }, [summary?.month, summary?.total_spent]);
 
   if (!summary || !budget) {
     return (
@@ -448,6 +470,98 @@ export default function DashboardOverview({
           </div>
         </div>
       )}
+
+      {/* Small Anomaly Detector Section (PyOD + Isolation Forest) */}
+      <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#0d1527]/90 via-[#101b33]/90 to-[#0d1527]/90 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3.5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-white text-base tracking-tight">
+                  Anomaly Detector
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                  PyOD • Isolation Forest
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Unsupervised machine learning analysis of real MongoDB transactions
+              </p>
+            </div>
+          </div>
+
+          {/* Metric Counter Badge */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {anomalyReport?.has_sufficient_history && (
+              <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 ${
+                anomalyReport.anomalies_detected > 0
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+                  : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+              }`}>
+                <span>{anomalyReport.anomalies_detected} Anomalies Detected</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Anomaly Content */}
+        {isAnomalyLoading ? (
+          <div className="py-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-amber-400 border-t-transparent" />
+            <span>Running Isolation Forest statistical anomaly scan...</span>
+          </div>
+        ) : !anomalyReport?.has_sufficient_history ? (
+          <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-xs text-blue-300 flex items-center gap-3">
+            <Sparkles className="w-5 h-5 shrink-0 text-blue-400" />
+            <span>{anomalyReport?.message || "Insufficient transaction history to detect statistical anomalies. Add at least 4 transactions."}</span>
+          </div>
+        ) : anomalyReport.anomalies_detected === 0 ? (
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300 flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span className="font-semibold">✅ No unusual transactions detected.</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {anomalyReport.anomalies.map((anomaly, idx) => (
+                <div 
+                  key={anomaly.id || idx}
+                  className="p-4 rounded-2xl bg-white/[0.03] border border-amber-500/30 hover:border-amber-400/60 transition-all space-y-2.5 shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-extrabold text-amber-400">
+                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                      <span>⚠️ Anomaly Detected</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      Status: {anomaly.status || "Review Recommended"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Amount</span>
+                      <span className="font-extrabold text-rose-300 text-sm">{formatCurrency(anomaly.amount)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Category</span>
+                      <span className="font-semibold text-slate-200">{anomaly.category}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-slate-300 pt-1 border-t border-white/[0.06]">
+                    <span className="text-slate-400 font-medium">Reason: </span>
+                    <span>{anomaly.reason}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Visual Analytics Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

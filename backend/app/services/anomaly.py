@@ -136,3 +136,197 @@ async def audit_and_generate_alerts(db, user_id: str, month_str: str):
         if not chk:
             res = await db.alerts.insert_one(a)
             await db.alerts.update_one({"_id": res.inserted_id}, {"$set": {"id": str(res.inserted_id)}})
+
+
+async def detect_pyod_isolation_forest_anomalies(
+    db,
+    user_id: str,
+    month: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Financial Anomaly Detection using PyOD (IForest / Isolation Forest).
+    Detects:
+    - Unusually high expenses
+    - Sudden spending spikes
+    - Abnormal transaction amounts
+    - Potential duplicate transactions
+    - Unusual spending patterns
+
+    Connects strictly to MongoDB user records for authenticated privacy.
+    Labels anomalies as 'Review Recommended' (statistical flags, not confirmed fraud).
+    """
+    from collections import defaultdict
+    import math
+
+    # 1. Fetch real user expenses from MongoDB
+    query = {"user_id": user_id}
+    cursor = db.expenses.find(query).sort([("date", 1), ("_id", 1)])
+    docs = await cursor.to_list(length=3000)
+
+    total_analyzed = len(docs)
+    if total_analyzed < 4:
+        return {
+            "anomalies_detected": 0,
+            "total_analyzed": total_analyzed,
+            "has_sufficient_history": False,
+            "message": "Insufficient transaction history to detect statistical anomalies. Please add at least 4 transactions to train the Isolation Forest model.",
+            "anomalies": []
+        }
+
+    # 2. Extract baseline statistical metrics
+    category_amounts = defaultdict(list)
+    daily_totals = defaultdict(float)
+    date_to_items = defaultdict(list)
+
+    for d in docs:
+        amt = float(d.get("amount", 0.0))
+        cat = d.get("category", "Miscellaneous")
+        dt = d.get("date", "")
+        category_amounts[cat].append(amt)
+        if dt:
+            daily_totals[dt] += amt
+            date_to_items[dt].append(d)
+
+    category_stats = {}
+    for cat, vals in category_amounts.items():
+        arr = np.array(vals)
+        category_stats[cat] = {
+            "mean": float(np.mean(arr)),
+            "std": float(np.std(arr)) if len(arr) > 1 else 0.0,
+            "max": float(np.max(arr))
+        }
+
+    all_daily = list(daily_totals.values())
+    avg_daily_spend = float(np.mean(all_daily)) if all_daily else 500.0
+
+    # 3. Build Multi-Feature Matrix for PyOD Isolation Forest
+    # Features: [log_amount, category_deviation_ratio, daily_spend_ratio, day_of_month]
+    features = []
+    for d in docs:
+        amt = max(0.01, float(d.get("amount", 0.0)))
+        cat = d.get("category", "Miscellaneous")
+        dt = d.get("date", "2026-10-15")
+        
+        cat_mean = category_stats.get(cat, {}).get("mean", amt)
+        cat_ratio = amt / (cat_mean + 1e-4)
+
+        day_total = daily_totals.get(dt, amt)
+        spike_ratio = day_total / (avg_daily_spend + 1e-4)
+
+        try:
+            day_num = int(dt.split("-")[-1]) if "-" in dt else 15
+        except Exception:
+            day_num = 15
+
+        features.append([
+            math.log1p(amt),
+            cat_ratio,
+            spike_ratio,
+            float(day_num)
+        ])
+
+    X = np.array(features)
+
+    # 4. Train PyOD Isolation Forest Model
+    iforest_flags = [0] * len(docs)
+    iforest_scores = [0.0] * len(docs)
+    try:
+        from pyod.models.iforest import IForest
+        contamination = min(0.15, max(0.04, 2.0 / len(docs)))
+        clf = IForest(contamination=contamination, random_state=42, n_estimators=100)
+        clf.fit(X)
+        iforest_flags = clf.labels_
+        iforest_scores = [float(s) for s in clf.decision_scores_]
+    except Exception as e:
+        # Fallback to Scikit-Learn IsolationForest
+        try:
+            from sklearn.ensemble import IsolationForest
+            clf = IsolationForest(contamination=0.1, random_state=42)
+            preds = clf.fit_predict(X)
+            iforest_flags = [1 if p == -1 else 0 for p in preds]
+        except Exception as e2:
+            print(f"[Anomaly Detection Notice]: {e2}")
+
+    # 5. Check Duplicates & Synthesize Explainable Anomalies
+    detected_anomalies = []
+    seen_signatures = {} # (amount, category) -> doc
+
+    for idx, d in enumerate(docs):
+        amt = float(d.get("amount", 0.0))
+        cat = d.get("category", "Miscellaneous")
+        desc = d.get("description", "Expense")
+        dt = d.get("date", "")
+        doc_id = str(d.get("_id") or d.get("id") or idx)
+
+        is_iforest_anomaly = bool(iforest_flags[idx] == 1)
+        anomaly_reason = None
+        anomaly_type = None
+
+        # Check A: Potential Duplicate Transactions (same amount, category & description or close date)
+        sig = (amt, cat, desc.strip().lower())
+        sig_loose = (amt, cat, dt)
+        if sig in seen_signatures:
+            prev = seen_signatures[sig]
+            anomaly_type = "Potential Duplicate"
+            anomaly_reason = f"Potential duplicate transaction: Matches another ₹{amt:,.0f} '{desc}' recorded on {prev.get('date', 'recent date')}."
+        elif sig_loose in seen_signatures:
+            anomaly_type = "Potential Duplicate"
+            anomaly_reason = f"Potential duplicate amount: Identical ₹{amt:,.0f} {cat} payment made on the same date."
+        else:
+            seen_signatures[sig] = d
+            seen_signatures[sig_loose] = d
+
+        # Check B: Sudden Daily Spending Spike
+        day_total = daily_totals.get(dt, amt)
+        if not anomaly_type and day_total >= (avg_daily_spend * 3.0) and amt >= 1000:
+            anomaly_type = "Sudden Spending Spike"
+            anomaly_reason = f"Sudden daily spending spike: Day total reached ₹{day_total:,.0f} (over 300% of your ₹{avg_daily_spend:,.0f} daily average)."
+
+        # Check C: Unusually High Expense relative to category
+        cat_stat = category_stats.get(cat, {})
+        cat_mean = cat_stat.get("mean", amt)
+        cat_std = cat_stat.get("std", 0.0)
+        high_threshold = max(cat_mean + 2.0 * cat_std, cat_mean * 2.2)
+
+        if not anomaly_type and (amt >= high_threshold or (is_iforest_anomaly and amt >= cat_mean * 1.8)):
+            anomaly_type = "Unusually High Expense"
+            times_higher = round(amt / cat_mean, 1) if cat_mean > 0 else 2.0
+            anomaly_reason = f"Unusually high spending compared with historical expenses ({times_higher}x higher than category average of ₹{cat_mean:,.0f})."
+
+        # Check D: Isolation Forest Multi-Feature Statistical Outlier
+        if not anomaly_type and is_iforest_anomaly:
+            anomaly_type = "Unusual Spending Pattern"
+            anomaly_reason = "Isolation Forest detected an unusual multidimensional spending pattern across amount, timing, and category baseline."
+
+        if anomaly_type:
+            detected_anomalies.append({
+                "id": doc_id,
+                "amount": amt,
+                "category": cat,
+                "description": desc,
+                "date": dt,
+                "anomaly_type": anomaly_type,
+                "reason": anomaly_reason,
+                "status": "Review Recommended",
+                "score": round(iforest_scores[idx], 3) if idx < len(iforest_scores) else 0.5,
+                "created_at": d.get("created_at")
+            })
+
+    # Optional month filter for view, while having leveraged full history for model training
+    if month:
+        filtered = [a for a in detected_anomalies if a.get("date", "").startswith(month)]
+    else:
+        filtered = detected_anomalies
+
+    # Sort anomalies by amount descending (highest suspicious amounts first)
+    filtered.sort(key=lambda x: x["amount"], reverse=True)
+
+    has_anomalies = len(filtered) > 0
+    return {
+        "anomalies_detected": len(filtered),
+        "total_analyzed": total_analyzed,
+        "has_sufficient_history": True,
+        "message": f"⚠️ {len(filtered)} anomalous transaction(s) flagged for review." if has_anomalies else "✅ No unusual transactions detected.",
+        "anomalies": filtered
+    }
+
