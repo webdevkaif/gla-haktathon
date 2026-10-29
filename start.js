@@ -1,10 +1,17 @@
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
 console.log('\x1b[36m%s\x1b[0m', '=============================================================');
 console.log('\x1b[36m%s\x1b[0m', '🚀 Starting ExpensePilot AI Full-Stack Platform...');
 console.log('\x1b[36m%s\x1b[0m', '=============================================================');
+
+// Automatically free orphaned processes from previous runs on ports 8000 and 5173
+try {
+  if (process.platform !== 'win32') {
+    execSync('lsof -ti :8000,:5173 2>/dev/null | xargs kill -9 2>/dev/null || true', { stdio: 'ignore' });
+  }
+} catch (_) {}
 
 const rootDir = __dirname;
 const backendDir = path.join(rootDir, 'backend');
