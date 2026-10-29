@@ -378,19 +378,19 @@ export default function PhoneAlertsView({ onToggleChat }) {
               </span>
 
               {/* Channel Selector */}
-              <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5 text-[11px]">
+              <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/10 text-xs">
                 <button
                   onClick={() => setActiveChannel('SMS')}
-                  className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                    activeChannel === 'SMS' ? 'bg-cyan-500 text-white shadow' : 'text-slate-400'
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
+                    activeChannel === 'SMS' ? 'bg-cyan-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   SMS
                 </button>
                 <button
                   onClick={() => setActiveChannel('WhatsApp')}
-                  className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                    activeChannel === 'WhatsApp' ? 'bg-emerald-500 text-white shadow' : 'text-slate-400'
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
+                    activeChannel === 'WhatsApp' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   WhatsApp

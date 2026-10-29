@@ -10,7 +10,12 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Sliders,
-  Bot
+  Bot,
+  Copy,
+  FileSearch,
+  Lock,
+  CheckCircle2,
+  ArrowRight 
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -83,13 +88,13 @@ export default function DashboardOverview({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-lg">
+        <div className="flex flex-wrap items-center gap-3 p-2 px-3 rounded-2xl bg-slate-900/90 border border-white/20 backdrop-blur-xl shadow-xl">
           {/* Studio Ghibli Theme Button */}
           <button
             onClick={() => setHudTheme('GHIBLI')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
               hudTheme === 'GHIBLI'
-                ? 'bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]'
+                ? 'bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] border border-white/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
@@ -100,9 +105,9 @@ export default function DashboardOverview({
           {/* 3D Naruto Shinobi Button */}
           <button
             onClick={() => setHudTheme('NARUTO')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
               hudTheme === 'NARUTO'
-                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-white/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
@@ -113,9 +118,9 @@ export default function DashboardOverview({
           {/* Cyber-Anime Pilot Button */}
           <button
             onClick={() => setHudTheme('CYBER')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
               hudTheme === 'CYBER'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_20px_rgba(6,182,212,0.5)] border border-white/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
@@ -206,6 +211,110 @@ export default function DashboardOverview({
               Ask Agent
             </GhibliButton>
           </div>
+        </div>
+      </div>
+
+      {/* Hackathon Winning Differentiators Showcase Strip */}
+      <div className="p-6 rounded-3xl glass-panel border border-cyan-500/30 shadow-[0_20px_50px_rgba(6,182,212,0.12)] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+              <ShieldCheck className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="font-extrabold text-white text-base tracking-tight flex items-center gap-2">
+                <span>Hackathon Differentiators</span>
+                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm">
+                  Production Stack
+                </span>
+              </h3>
+              <p className="text-xs text-slate-300">
+                Beyond basic chatbots: Evidence citations • Duplicate detection • Explainable risk scoring • Approval workflow • SHA-256 audit • Exception dashboard
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:scale-105 transition-all shrink-0 w-fit"
+          >
+            <span>Open Enterprise HQ</span>
+            <ArrowRight className="w-3.5 h-3.5 text-cyan-300" />
+          </button>
+        </div>
+
+        {/* 6 Colorful Action Buttons with Micro-Animations */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white shadow-lg shadow-rose-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <AlertTriangle className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">1. Exceptions</span>
+            <span className="text-[10px] text-white/80">High-risk first</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <CheckCircle2 className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">2. Approvals</span>
+            <span className="text-[10px] text-white/80">Friday disbursement</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-lg shadow-amber-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <Copy className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">3. Duplicates</span>
+            <span className="text-[10px] text-white/80">Zero double-pay</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <FileSearch className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">4. Explainable</span>
+            <span className="text-[10px] text-white/80">Exact rule reasons</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <Lock className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">5. SHA-256 Audit</span>
+            <span className="text-[10px] text-white/80">Tamper-evident chain</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <Sparkles className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">6. Policy Evidence</span>
+            <span className="text-[10px] text-white/80">Cited source rules</span>
+          </button>
         </div>
       </div>
 

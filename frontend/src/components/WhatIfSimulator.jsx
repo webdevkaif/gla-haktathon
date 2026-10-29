@@ -239,7 +239,7 @@ export default function WhatIfSimulator({ summary }) {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {[500, 1000, 2500, 5000].map((quickAmt) => (
                 <button
                   key={quickAmt}
@@ -247,7 +247,7 @@ export default function WhatIfSimulator({ summary }) {
                     setPurchaseAmount(quickAmt);
                     setTimeout(handleRunPurchaseSimulation, 50);
                   }}
-                  className={`text-xs px-3 py-1.5 rounded-xl border transition-all font-semibold ${
+                  className={`text-xs px-4 py-2 rounded-xl border transition-all font-semibold ${
                     purchaseAmount === quickAmt 
                       ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)]' 
                       : 'glass-btn text-slate-300 hover:text-white'

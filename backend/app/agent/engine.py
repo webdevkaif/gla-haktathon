@@ -209,6 +209,29 @@ def analyze_uploaded_file_context(
     high_items = summary.get("flagged_high_expenses", [])
     dup_rows = summary.get("duplicate_rows", [])
 
+    q_lower = query.lower()
+    direct_answers = []
+    if any(k in q_lower for k in ["total", "sum", "expenditure", "cost", "overall", "kitna", "how much"]):
+        if total_sum is not None:
+            direct_answers.append(f"💰 **Total Expenditure in `{filename}`**: **₹{total_sum:,.2f} INR** across {row_count} item(s).")
+    if any(k in q_lower for k in ["duplicate", "repeat", "copied", "match"]):
+        if dup_rows:
+            direct_answers.append(f"🔍 **Duplicate Detection**: Found **{len(dup_rows)} duplicate entry(ies)** flagged for investigation.")
+        else:
+            direct_answers.append("🔍 **Duplicate Detection**: ✅ No duplicate rows detected in this file.")
+    if any(k in q_lower for k in ["violation", "flag", "high", "policy", "anomaly", "sec-107", "rule", "unusual"]):
+        if high_items:
+            direct_answers.append(f"⚠️ **Policy Anomaly**: Found **{len(high_items)} line item(s)** exceeding ₹10,000 requiring secondary approval.")
+        else:
+            direct_answers.append("✅ **Policy Compliance**: All transactions comply with standard single-tier manager limits.")
+    if any(k in q_lower for k in ["max", "highest", "biggest", "largest"]):
+        max_amt = summary.get("max_amount")
+        if max_amt is not None:
+            direct_answers.append(f"📈 **Highest Single Expense**: **₹{max_amt:,.2f} INR**.")
+    if any(k in q_lower for k in ["average", "avg", "mean"]):
+        if avg_amt is not None:
+            direct_answers.append(f"📊 **Average Expense**: **₹{avg_amt:,.2f} INR** per transaction.")
+
     citations = [
         {
             "doc_name": "Meridian Expense & Procurement Policy 2026",
@@ -224,11 +247,16 @@ def analyze_uploaded_file_context(
         }
     ]
 
-    lines = [
+    lines = []
+    if direct_answers:
+        lines.extend(direct_answers)
+        lines.append("")
+
+    lines.extend([
         f"📊 **AI Data Extraction & Audit Analysis: `{filename}`** ({file_type})",
         f"• **Dataset Dimensions**: {row_count} rows across {col_count} columns",
         f"• **Extracted Headers**: {', '.join([f'`{h}`' for h in headers[:8]])}"
-    ]
+    ])
 
     if total_sum is not None:
         lines.append(f"• **Total Expenditure**: ₹{total_sum:,.2f} INR (Average per line item: ₹{avg_amt:,.2f})")
@@ -491,7 +519,9 @@ async def process_agent_message(
     6. Returns structured AgentChatResponse payload.
     """
     # 1. Load user profile
-    user_doc = await db.users.find_one({"$or": [{"id": user_id}, {"user_id": user_id}]})
+    user_doc = None
+    if db is not None:
+        user_doc = await db.users.find_one({"$or": [{"id": user_id}, {"user_id": user_id}]})
     if not user_doc:
         from backend.app.auth import DEMO_USERS
         user_doc = DEMO_USERS.get(user_id, DEMO_USERS["emp_john"])
@@ -499,11 +529,25 @@ async def process_agent_message(
     # 2. Mask PII in input
     masked_message, had_pii = mask_pii(message)
 
+    # Build contextual file attachment prompt if a file was provided
+    file_prompt_addon = ""
+    if file_context:
+        file_prompt_addon = (
+            f"\n\n[USER ATTACHED FILE CONTEXT]\n"
+            f"Filename: {file_context.get('filename')} (Type: {file_context.get('file_type')})\n"
+            f"Dimensions: {file_context.get('row_count')} rows, {file_context.get('column_count')} columns\n"
+            f"Headers: {', '.join(file_context.get('headers', [])[:10])}\n"
+            f"Financial Summary: {json.dumps(file_context.get('summary', {}))}\n"
+            f"Data Preview:\n{file_context.get('markdown_preview', '')}\n"
+            f"Sample Rows: {json.dumps(file_context.get('sample_rows', [])[:8])}\n"
+            f"Instructions: The user has attached this file to the conversation. Answer their questions accurately using the numbers, line items, and data from this attached file.\n"
+        )
+
     # 3. Query LLM (Groq, xAI Grok, or Gemini) if API key configured, otherwise use deterministic engine
     result = None
 
     # Option A: Groq (Ultra-fast LPU inference)
-    if not result and settings.GROQ_API_KEY and not file_context:
+    if not result and settings.GROQ_API_KEY:
         try:
             lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
             model_to_use = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
@@ -514,11 +558,11 @@ async def process_agent_message(
                     json={
                         "model": model_to_use,
                         "messages": [
-                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')})"},
+                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')}){file_prompt_addon}"},
                             {"role": "user", "content": masked_message}
                         ],
                         "temperature": 0.1,
-                        "max_tokens": 500
+                        "max_tokens": 600
                     }
                 )
                 if res.status_code == 200:
@@ -532,16 +576,20 @@ async def process_agent_message(
                     result = {
                         "reply": raw_reply,
                         "citations": citations,
-                        "tool_called": "policy_qa" if citations else None,
-                        "tool_result": None,
+                        "tool_called": "file_analyzer" if file_context else ("policy_qa" if citations else None),
+                        "tool_result": file_context.get("summary") if file_context else None,
                         "escalated": False,
-                        "suggested_actions": ["Check claim status", "View policy limits"]
+                        "suggested_actions": [
+                            f"Summarize {file_context.get('filename')}" if file_context else "Check claim status",
+                            "Are there any policy violations?",
+                            "What is the total expenditure?"
+                        ]
                     }
         except Exception as e:
             print(f"[Agent Notice] Groq inference fallback: {e}")
 
     # Option B: xAI Grok
-    if not result and getattr(settings, 'GROK_API_KEY', None) and not file_context:
+    if not result and getattr(settings, 'GROK_API_KEY', None):
         try:
             lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
             async with httpx.AsyncClient(timeout=8.0) as client:
@@ -551,11 +599,11 @@ async def process_agent_message(
                     json={
                         "model": "grok-2-latest",
                         "messages": [
-                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')})"},
+                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}){file_prompt_addon}"},
                             {"role": "user", "content": masked_message}
                         ],
                         "temperature": 0.2,
-                        "max_tokens": 500
+                        "max_tokens": 600
                     }
                 )
                 if res.status_code == 200:
@@ -569,8 +617,8 @@ async def process_agent_message(
                     result = {
                         "reply": raw_reply,
                         "citations": citations,
-                        "tool_called": "policy_qa" if citations else None,
-                        "tool_result": None,
+                        "tool_called": "file_analyzer" if file_context else ("policy_qa" if citations else None),
+                        "tool_result": file_context.get("summary") if file_context else None,
                         "escalated": False,
                         "suggested_actions": ["Check claim status", "View policy limits"]
                     }
@@ -578,7 +626,7 @@ async def process_agent_message(
             print(f"[Agent Notice] xAI Grok inference fallback: {e}")
 
     # Option C: Google Gemini
-    if not result and settings.GEMINI_API_KEY and not file_context:
+    if not result and settings.GEMINI_API_KEY:
         try:
             lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
             gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={settings.GEMINI_API_KEY}"
@@ -589,7 +637,7 @@ async def process_agent_message(
                     json={
                         "contents": [{
                             "parts": [{
-                                "text": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')})\nUser Query: {masked_message}"
+                                "text": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')}){file_prompt_addon}\nUser Query: {masked_message}"
                             }]
                         }],
                         "generationConfig": {"temperature": 0.2, "maxOutputTokens": 600}
@@ -608,8 +656,8 @@ async def process_agent_message(
                         result = {
                             "reply": raw_reply,
                             "citations": citations,
-                            "tool_called": "policy_qa" if citations else None,
-                            "tool_result": None,
+                            "tool_called": "file_analyzer" if file_context else ("policy_qa" if citations else None),
+                            "tool_result": file_context.get("summary") if file_context else None,
                             "escalated": False,
                             "suggested_actions": ["Check claim status", "View policy limits"]
                         }
@@ -627,20 +675,21 @@ async def process_agent_message(
         )
 
     # 4. Write immutable audit log for the agent query
-    await write_audit(
-        db=db,
-        actor_id=user_doc.get("id", user_id),
-        actor_role=user_doc.get("role", "employee"),
-        action="AGENT_QUERY",
-        entity_type="agent",
-        entity_id=result.get("tool_called") or "conversation",
-        input_data={"masked_message": masked_message, "had_pii": had_pii, "language": language, "has_file": bool(file_context)},
-        result={
-            "tool_called": result.get("tool_called"),
-            "citations_count": len(result.get("citations", [])),
-            "escalated": result.get("escalated", False)
-        },
-        status="SUCCESS"
-    )
+    if db is not None:
+        await write_audit(
+            db=db,
+            actor_id=user_doc.get("id", user_id),
+            actor_role=user_doc.get("role", "employee"),
+            action="AGENT_QUERY",
+            entity_type="agent",
+            entity_id=result.get("tool_called") or "conversation",
+            input_data={"masked_message": masked_message, "had_pii": had_pii, "language": language, "has_file": bool(file_context)},
+            result={
+                "tool_called": result.get("tool_called"),
+                "citations_count": len(result.get("citations", [])),
+                "escalated": result.get("escalated", False)
+            },
+            status="SUCCESS"
+        )
 
     return result

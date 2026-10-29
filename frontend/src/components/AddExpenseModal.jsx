@@ -157,7 +157,7 @@ export default function AddExpenseModal({ isOpen, onClose, onExpenseAdded }) {
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {[
                 "₹350 dinner yesterday",
                 "₹250 food and ₹100 petrol",
@@ -167,7 +167,7 @@ export default function AddExpenseModal({ isOpen, onClose, onExpenseAdded }) {
                   key={i}
                   type="button"
                   onClick={() => setNaturalText(sample)}
-                  className="text-[11px] px-3 py-1.5 rounded-xl glass-btn text-slate-300 hover:text-cyan-300 transition-colors"
+                  className="text-xs px-3.5 py-2 rounded-xl glass-btn text-slate-300 hover:text-cyan-300 transition-all font-medium hover:scale-[1.02]"
                 >
                   "{sample}"
                 </button>

@@ -161,17 +161,38 @@ export async function ensureAuthToken() {
   return null;
 }
 
-export async function sendAgentMessage(message) {
+export async function sendAgentMessage(message, fileContext = null) {
   const token = await ensureAuthToken();
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
+  const payload = { message };
+  if (fileContext) {
+    payload.file_context = fileContext;
+  }
+
   const res = await fetch(`${API_BASE}/agent/chat`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("Agent message failed");
+  return res.json();
+}
+
+export async function uploadAgentFile(formData) {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
+  const res = await fetch(`${API_BASE}/agent/upload-file`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to process uploaded file");
+  }
   return res.json();
 }
 
@@ -303,6 +324,135 @@ export async function uploadExpenseCSV(formData) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to upload CSV/Excel file");
   }
+  return res.json();
+}
+
+// -------------------------------------------------------------
+// Hackathon Differentiators API Endpoints (6 Key Winner Features)
+// -------------------------------------------------------------
+
+export async function fetchFinanceDashboardSummary() {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+  const res = await fetch(`${API_BASE}/dashboard/summary`, { headers });
+  if (!res.ok) throw new Error("Failed to fetch finance dashboard summary");
+  return res.json();
+}
+
+export async function fetchApprovals(params = {}) {
+  const query = new URLSearchParams();
+  if (params.state) query.append("state", params.state);
+  if (params.entity_type) query.append("entity_type", params.entity_type);
+
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+  const res = await fetch(`${API_BASE}/approvals?${query.toString()}`, { headers });
+  if (!res.ok) throw new Error("Failed to fetch approvals");
+  return res.json();
+}
+
+export async function decideApproval(approvalId, decision, comments = "") {
+  const token = await ensureAuthToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}/approvals/${approvalId}/decide`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ decision, comments }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to submit approval decision");
+  }
+  return res.json();
+}
+
+export async function sendApprovalReminder(approvalId) {
+  const token = await ensureAuthToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}/approvals/${approvalId}/remind`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ approval_id: approvalId }),
+  });
+  if (!res.ok) throw new Error("Failed to send reminder");
+  return res.json();
+}
+
+export async function fetchAuditLogs(params = {}) {
+  const query = new URLSearchParams();
+  if (params.skip) query.append("skip", params.skip);
+  if (params.limit) query.append("limit", params.limit || 50);
+  if (params.action) query.append("action", params.action);
+  if (params.entity_type) query.append("entity_type", params.entity_type);
+
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+  const res = await fetch(`${API_BASE}/audit?${query.toString()}`, { headers });
+  if (!res.ok) throw new Error("Failed to fetch audit logs");
+  return res.json();
+}
+
+export async function verifyAuditTrailIntegrity() {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+  const res = await fetch(`${API_BASE}/audit/verify`, { headers });
+  if (!res.ok) throw new Error("Failed to verify audit trail integrity");
+  return res.json();
+}
+
+export async function fetchPolicies() {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+  const res = await fetch(`${API_BASE}/policies`, { headers });
+  if (!res.ok) throw new Error("Failed to fetch policies");
+  return res.json();
+}
+
+export async function fetchClaims() {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+  const res = await fetch(`${API_BASE}/claims`, { headers });
+  if (!res.ok) throw new Error("Failed to fetch claims");
+  return res.json();
+}
+
+export async function fetchEscalations() {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+  const res = await fetch(`${API_BASE}/escalations`, { headers });
+  if (!res.ok) throw new Error("Failed to fetch escalations");
+  return res.json();
+}
+
+export async function resolveEscalation(escalationId, resolutionNotes) {
+  const token = await ensureAuthToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}/escalations/${escalationId}/resolve`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ resolution_notes: resolutionNotes }),
+  });
+  if (!res.ok) throw new Error("Failed to resolve escalation");
+  return res.json();
+}
+
+export async function fetchDatabaseStatus() {
+  const res = await fetch(`${API_BASE}/system/db-status`);
+  if (!res.ok) throw new Error("Failed to fetch database status");
+  return res.json();
+}
+
+export async function reconnectAtlasDatabase() {
+  const res = await fetch(`${API_BASE}/system/reconnect`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to trigger Atlas reconnect");
   return res.json();
 }
 

@@ -374,19 +374,19 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
                   </span>
                   
                   {/* Select Channel */}
-                  <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5 text-[11px]">
+                  <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/10 text-xs">
                     <button
                       onClick={() => setActiveChannel('SMS')}
-                      className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                        activeChannel === 'SMS' ? 'bg-cyan-500 text-white shadow' : 'text-slate-400'
+                      className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
+                        activeChannel === 'SMS' ? 'bg-cyan-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
                       }`}
                     >
                       SMS
                     </button>
                     <button
                       onClick={() => setActiveChannel('WhatsApp')}
-                      className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                        activeChannel === 'WhatsApp' ? 'bg-emerald-500 text-white shadow' : 'text-slate-400'
+                      className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
+                        activeChannel === 'WhatsApp' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
                       }`}
                     >
                       WhatsApp
@@ -394,11 +394,11 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1.5">
                   <button
                     onClick={handleSendTest}
                     disabled={isSending}
-                    className="flex flex-col items-center justify-center p-3 rounded-2xl glass-btn text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/60 transition-all text-center gap-1.5"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-2xl glass-btn text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/60 transition-all text-center gap-2 hover:scale-[1.02]"
                   >
                     <Send className="w-4 h-4" />
                     <span className="text-xs font-bold">Send Test Alert</span>
@@ -408,7 +408,7 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
                   <button
                     onClick={handleSendDailyRecap}
                     disabled={isSending}
-                    className="flex flex-col items-center justify-center p-3 rounded-2xl glass-btn text-purple-300 border border-purple-500/30 hover:border-purple-400/60 transition-all text-center gap-1.5"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-2xl glass-btn text-purple-300 border border-purple-500/30 hover:border-purple-400/60 transition-all text-center gap-2 hover:scale-[1.02]"
                   >
                     <Clock className="w-4 h-4" />
                     <span className="text-xs font-bold">Send Daily Recap</span>
@@ -418,7 +418,7 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
                   <button
                     onClick={handleSendRoadmap}
                     disabled={isSending}
-                    className="flex flex-col items-center justify-center p-3 rounded-2xl glass-btn text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/60 transition-all text-center gap-1.5"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-2xl glass-btn text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/60 transition-all text-center gap-2 hover:scale-[1.02]"
                   >
                     <Sparkles className="w-4 h-4" />
                     <span className="text-xs font-bold">Send Roadmap PDF</span>

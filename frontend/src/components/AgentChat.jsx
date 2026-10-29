@@ -19,7 +19,7 @@ import {
   Square,
   ShieldCheck
 } from 'lucide-react';
-import { sendAgentMessage, uploadInvoiceFile, uploadExpenseCSV } from '../api';
+import { sendAgentMessage, uploadInvoiceFile, uploadExpenseCSV, uploadAgentFile } from '../api';
 import { formatCurrency } from '../utils/formatters';
 
 const STARTER_PROMPTS = [
@@ -35,7 +35,7 @@ const STARTER_PROMPTS = [
   "Detect unusual expenses"
 ];
 
-export default function AgentChat({ isOpen, onClose, onDataMutated }) {
+export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessage }) {
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -51,6 +51,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
     }
   ]);
   const [input, setInput] = useState('');
+  const [attachedFileContext, setAttachedFileContext] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -104,8 +105,11 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
+      if (initialMessage) {
+        setInput(initialMessage);
+      }
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, initialMessage]);
 
   // Voice output synthesis helper
   const speakVoice = useCallback((text) => {
@@ -188,7 +192,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
     setIsLoading(true);
 
     try {
-      const response = await sendAgentMessage(text.trim());
+      const response = await sendAgentMessage(text.trim(), attachedFileContext);
       const agentMsg = {
         id: (Date.now() + 1).toString(),
         sender: 'agent',
@@ -226,7 +230,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
     }
   };
 
-  // Handle file upload (Invoice OCR or Excel/CSV Spreadsheets) from chat
+  // Handle file upload (CSV, Excel, PDF, Images, or TXT) from chat
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -235,76 +239,97 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
     const formData = new FormData();
     formData.append('file', file);
 
-    const isSpreadsheet = /\.(csv|xlsx|xls)$/i.test(file.name);
-
-    if (isSpreadsheet) {
-      try {
-        const result = await uploadExpenseCSV(formData);
-        const importedCount = result.imported || 0;
-        const skippedCount = result.skipped || 0;
-
-        // User message
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            sender: 'user',
-            text: `📊 Uploaded spreadsheet: **${file.name}**`
-          },
-          {
-            id: (Date.now() + 1).toString(),
-            sender: 'agent',
-            text: `✅ **Successfully processed "${file.name}"!**\n\n• **${importedCount} transaction(s)** imported & categorized\n${skippedCount > 0 ? `• **${skippedCount} row(s)** skipped (invalid/missing data)\n` : ''}\nYour database, budget velocity, and monthly analytics are now fully refreshed. Would you like me to check for unusual expenses or calculate your remaining daily budget?`,
-            voiceText: `Successfully imported ${importedCount} expenses from ${file.name}. Your financial records are now updated!`,
-            suggestedActions: [
-              "How much did I spend this month?",
-              "Detect unusual expenses",
-              "Where did most of my money go?",
-              "How much can I spend per day?"
-            ]
-          }
-        ]);
-
-        if (isVoiceEnabled) {
-          speakVoice(`Successfully imported ${importedCount} expenses from ${file.name}.`);
-        }
-
-        if (onDataMutated) onDataMutated();
-      } catch (err) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            sender: 'agent',
-            text: `❌ **Failed to import spreadsheet "${file.name}":**\n${err.message || 'Please check that the file has date, amount, and description columns.'}`,
-            isError: true
-          }
-        ]);
-      } finally {
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-      return;
-    }
+    const isSpreadsheet = /\.(csv|xlsx|xls|tsv)$/i.test(file.name);
+    const isInvoiceDoc = /\.(pdf|png|jpg|jpeg|webp)$/i.test(file.name);
 
     try {
-      const uploaded = await uploadInvoiceFile(formData);
-      
-      // Add user notification
+      // 1. Process via Intelligent File Extractor
+      const extracted = await uploadAgentFile(formData);
+      setAttachedFileContext(extracted);
+
+      // 2. If it is a spreadsheet, also attempt background sync to ledger
+      let syncResult = null;
+      if (isSpreadsheet) {
+        try {
+          syncResult = await uploadExpenseCSV(formData);
+          if (onDataMutated) onDataMutated();
+        } catch (syncErr) {
+          console.log("Expense auto-sync notice:", syncErr);
+        }
+      } else if (isInvoiceDoc) {
+        try {
+          await uploadInvoiceFile(formData);
+          if (onDataMutated) onDataMutated();
+        } catch (invErr) {
+          console.log("Invoice OCR register notice:", invErr);
+        }
+      }
+
+      // Build rich introductory breakdown
+      const rowCount = extracted.row_count || 0;
+      const totalSum = extracted.summary?.total_sum;
+      const avgAmt = extracted.summary?.average_amount;
+      const highItems = extracted.summary?.flagged_high_expenses || [];
+      const dupRows = extracted.summary?.duplicate_rows || [];
+
+      let introReply = `📊 **Successfully processed & analyzed "${file.name}"!**\n\n`;
+      if (rowCount > 0) {
+        introReply += `• **Extracted**: ${rowCount} row(s) across ${extracted.column_count || 0} column(s)\n`;
+      }
+      if (totalSum !== null && totalSum !== undefined) {
+        introReply += `• **Total Amount**: ₹${Number(totalSum).toLocaleString('en-IN')} ${avgAmt ? `(Avg: ₹${Number(avgAmt).toLocaleString('en-IN')})` : ''}\n`;
+      }
+      if (highItems.length > 0) {
+        introReply += `• ⚠️ **Policy Flag**: ${highItems.length} high-value expense(s) exceed ₹10,000 threshold (requires SEC-107 approval)\n`;
+      }
+      if (dupRows.length > 0) {
+        introReply += `• ⚠️ **Duplicate Check**: ${dupRows.length} duplicate line item(s) detected\n`;
+      }
+      if (syncResult && syncResult.imported > 0) {
+        introReply += `• ✅ **Ledger Sync**: ${syncResult.imported} transaction(s) synchronized into your monthly analytics database\n`;
+      }
+      if (extracted.summary?.text_summary) {
+        introReply += `\n**Document Content Summary:**\n${extracted.summary.text_summary.slice(0, 350)}...\n`;
+      }
+      introReply += `\n📎 **I have attached this file to our conversation.** You can ask me anything about it—such as highest expenses, category breakdowns, vendor details, or compliance!`;
+
+      const promptActions = extracted.suggested_prompts || [
+        `Summarize everything in ${file.name}`,
+        "What is the total expenditure in this file?",
+        "Are there any policy violations or high expenses?",
+        "Did you find any duplicate rows or anomalies?"
+      ];
+
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           sender: 'user',
-          text: `📎 Uploaded invoice: **${file.name}**`
+          text: `📎 Attached file: **${file.name}** (${(file.size / 1024).toFixed(1)} KB)`
+        },
+        {
+          id: (Date.now() + 1).toString(),
+          sender: 'agent',
+          text: introReply,
+          voiceText: `Successfully processed ${file.name}. Total amount is ${totalSum ? 'rupees ' + Math.round(totalSum) : 'processed'}. Ask me anything about this file!`,
+          suggestedActions: promptActions,
+          filePreview: extracted.markdown_preview
         }
       ]);
 
-      // Trigger automatic invoice audit discussion by agent
-      handleSend("Talk about my uploaded invoices");
-      if (onDataMutated) onDataMutated();
+      if (isVoiceEnabled) {
+        speakVoice(`Successfully processed ${file.name}. Ask me anything about this file!`);
+      }
     } catch (err) {
-      alert("Failed to upload invoice file. Please try again.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          sender: 'agent',
+          text: `❌ **Failed to process "${file.name}":**\n${err.message || 'Please check that the file is not corrupted.'}`,
+          isError: true
+        }
+      ]);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -513,16 +538,24 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
 
                 {/* Text Content */}
                 <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                {/* File Markdown Preview */}
+                {msg.filePreview && (
+                  <div className="mt-3 p-3 rounded-2xl bg-black/60 border border-cyan-500/30 overflow-x-auto text-[11px] font-mono text-cyan-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">File Preview:</span>
+                    <pre className="whitespace-pre font-mono">{msg.filePreview}</pre>
+                  </div>
+                )}
               </div>
 
               {/* Next Suggested Action Chips */}
               {msg.suggestedActions && msg.suggestedActions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2.5 max-w-[88%]">
+                <div className="flex flex-wrap gap-2.5 mt-3 max-w-[92%]">
                   {msg.suggestedActions.map((action, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSend(action)}
-                      className="text-xs px-3 py-1.5 rounded-xl glass-btn text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/60 transition-all text-left shadow-sm"
+                      className="text-xs px-3.5 py-2 rounded-xl glass-btn text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/60 transition-all text-left shadow-sm hover:scale-[1.02]"
                     >
                       {action}
                     </button>
@@ -543,38 +576,64 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
         </div>
 
         {/* Quick Voice & Action Prompts Bar */}
-        <div className="px-4 py-2 border-t border-white/[0.08] bg-black/20 overflow-x-auto whitespace-nowrap scrollbar-none">
-          <div className="flex gap-2">
+        <div className="px-5 py-3 border-t border-white/[0.08] bg-black/20 overflow-x-auto whitespace-nowrap scrollbar-none">
+          <div className="flex gap-3">
             {STARTER_PROMPTS.map((prompt, i) => (
               <button
                 key={i}
                 onClick={() => handleSend(prompt)}
-                className="text-[11px] px-3 py-1.5 rounded-xl glass-btn text-slate-300 hover:text-cyan-300 shrink-0 transition-all flex items-center gap-1.5"
+                className="text-xs px-3.5 py-2 rounded-xl glass-btn text-slate-300 hover:text-cyan-300 shrink-0 transition-all flex items-center gap-2 font-medium hover:scale-[1.02]"
               >
-                {i < 3 && <Sparkles className="w-3 h-3 text-cyan-400" />}
+                {i < 3 && <Sparkles className="w-3.5 h-3.5 text-cyan-400" />}
                 <span>{prompt}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Hidden File Input for Invoice OCR and Excel/CSV Upload */}
+        {/* Hidden File Input for All Files: Spreadsheets, Invoices, PDFs, Images */}
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileUpload}
-          accept=".pdf,.png,.jpg,.jpeg,.txt,.csv,.xlsx,.xls"
+          accept=".csv,.xlsx,.xls,.tsv,.pdf,.png,.jpg,.jpeg,.webp,.txt,.json,.md"
           className="hidden"
         />
 
         {/* Chat & Voice Input Bar */}
-        <div className="p-4 sm:p-5 border-t border-white/[0.08] bg-black/30">
+        <div className="p-4 sm:p-5 border-t border-white/[0.08] bg-black/30 space-y-3">
+          
+          {/* Active Attached File Pill */}
+          {attachedFileContext && (
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-cyan-950/60 border border-cyan-400/40 text-xs text-cyan-300 animate-fade-in shadow-md">
+              <div className="flex items-center gap-2 truncate">
+                <Paperclip className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="truncate">
+                  Attached: <strong className="text-white">{attachedFileContext.filename}</strong> ({attachedFileContext.file_type || 'FILE'})
+                </span>
+                {attachedFileContext.summary?.total_sum && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 font-mono shrink-0">
+                    Total: ₹{Number(attachedFileContext.summary.total_sum).toLocaleString('en-IN')}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttachedFileContext(null)}
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white shrink-0 ml-2"
+                title="Detach file"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSend();
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-3"
           >
             {/* Upload File Button */}
             <button

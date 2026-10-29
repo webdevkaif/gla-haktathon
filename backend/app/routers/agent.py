@@ -11,22 +11,15 @@ router = APIRouter(prefix="/api/agent", tags=["AI Agent"])
 
 @router.post("/upload-file", response_model=AgentFileUploadResponse)
 async def upload_file_for_agent(
-    file: UploadFile = File(...),
-    current_user = Depends(get_current_user)
+    file: UploadFile = File(...)
 ):
     """
-    Parses and extracts structured data from uploaded CSV or Excel (.xlsx, .xls) files.
+    Parses and extracts structured data from uploaded CSV, Excel (.xlsx, .xls),
+    PDF, TXT, JSON, or image files.
     Calculates summary statistics, flags policy anomalies, and returns structured context
     for AI conversation and compliance auditing.
     """
-    filename = file.filename or "uploaded_spreadsheet.csv"
-    ext = filename.split(".")[-1].lower() if "." in filename else ""
-    if ext not in ["csv", "xlsx", "xls"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file format '.{ext}'. Please upload a CSV (.csv) or Excel (.xlsx, .xls) spreadsheet."
-        )
-
+    filename = file.filename or "uploaded_file.csv"
     file_bytes = await file.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="The uploaded file is empty.")
@@ -34,13 +27,13 @@ async def upload_file_for_agent(
     try:
         extracted = extract_tabular_data(file_bytes=file_bytes, filename=filename)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to parse spreadsheet: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Failed to process file '{filename}': {str(e)}")
 
     suggested_prompts = [
-        f"Summarize the expenses in {filename}",
-        f"Are there any policy violations in this spreadsheet?",
-        f"Did you find any duplicate rows in {filename}?",
-        f"What is the total expenditure in this file?"
+        f"Summarize everything in {filename}",
+        f"What is the total expenditure in this file?",
+        f"Are there any policy violations or high expenses?",
+        f"Did you find any duplicate rows or anomalies?"
     ]
 
     return AgentFileUploadResponse(

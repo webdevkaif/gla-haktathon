@@ -125,11 +125,11 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
             />
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-3.5 flex-wrap">
             {/* Unusual toggle */}
             <button
               onClick={() => setShowUnusualOnly(!showUnusualOnly)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-4.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 showUnusualOnly 
                   ? 'bg-amber-500/90 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.5)] border border-amber-300' 
                   : 'glass-btn text-slate-300 hover:text-white'
@@ -142,7 +142,7 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
             {/* Export CSV */}
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold glass-btn text-slate-300 hover:text-white transition-all"
+              className="flex items-center gap-2 px-4.5 py-2.5 rounded-xl text-xs font-bold glass-btn text-slate-300 hover:text-white transition-all shadow-sm"
               title="Export filtered transactions to CSV"
             >
               <Download className="w-3.5 h-3.5" />
@@ -151,7 +151,7 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
 
             {/* Import CSV / Excel Button */}
             <label
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer
+              className={`flex items-center gap-2 px-4.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm
                 ${isImporting
                   ? 'glass-btn text-emerald-400 opacity-70 cursor-not-allowed'
                   : 'glass-btn text-emerald-400 hover:text-white hover:bg-emerald-500/20'
@@ -163,11 +163,11 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
               ) : (
                 <FileSpreadsheet className="w-3.5 h-3.5" />
               )}
-              <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import CSV'}</span>
+              <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import CSV/Excel'}</span>
               <input
                 type="file"
                 onChange={handleImportCSV}
-                accept=".csv,.xlsx,.xls"
+                accept=".csv,.xlsx,.xls,.tsv"
                 className="hidden"
                 disabled={isImporting}
               />
@@ -176,10 +176,10 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
             {/* Add Expense Button */}
             <button
               onClick={onOpenAddModal}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold glass-btn-emerald text-white"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold glass-btn-emerald text-white shadow-md hover:scale-[1.02] transition-transform"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add</span>
+              <Plus className="w-4 h-4" />
+              <span>Add Expense</span>
             </button>
           </div>
 
@@ -228,14 +228,14 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
         </div>
 
         {/* Category Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCat === cat;
             return (
               <button
                 key={cat}
                 onClick={() => setSelectedCat(cat)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all ${
+                className={`px-4.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all ${
                   isSelected
                     ? 'bg-gradient-to-r from-cyan-500/80 to-blue-600/80 text-white shadow-[0_0_15px_rgba(6,182,212,0.35),inset_0_1px_0_0_rgba(255,255,255,0.4)] border border-cyan-400/40'
                     : 'glass-pill text-slate-300 hover:text-white hover:bg-white/[0.08]'

@@ -12,6 +12,8 @@ import BudgetManager from './components/BudgetManager';
 import InvoicesRoadmapView from './components/InvoicesRoadmapView';
 import PhoneAlertsModal from './components/PhoneAlertsModal';
 import PhoneAlertsView from './components/PhoneAlertsView';
+import HackathonDifferentiatorsView from './components/HackathonDifferentiatorsView';
+import MongoConnectionModal from './components/MongoConnectionModal';
 import { 
   fetchMonthlySummary, 
   fetchCurrentBudget, 
@@ -19,6 +21,7 @@ import {
   fetchExpenses, 
   fetchAlerts, 
   fetchGoals, 
+  fetchDatabaseStatus,
   seedDemoData 
 } from './api';
 import { Bot, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -38,14 +41,22 @@ export default function App() {
   // Modals & Drawers
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInitialPrompt, setChatInitialPrompt] = useState('');
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [isMongoModalOpen, setIsMongoModalOpen] = useState(false);
+  const [dbStatus, setDbStatus] = useState(null);
   const [isSeeding, setIsSeeding] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // 3D Background Theme State: 'chakra' (Naruto) | 'cyber' (Anime Pilot) | 'ghibli' (Meadow) | 'none'
-  const [bgTheme, setBgTheme] = useState('chakra');
+  const handleOpenChatWithMessage = (msg) => {
+    setChatInitialPrompt(msg);
+    setIsChatOpen(true);
+  };
+
+  // 3D Background Theme State: 'clay3d' (Cozy 3D Studio) | 'chakra' (Naruto) | 'cyber' (Anime Pilot) | 'ghibli' (Meadow) | 'none'
+  const [bgTheme, setBgTheme] = useState('clay3d');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -54,13 +65,14 @@ export default function App() {
 
   const loadAllData = useCallback(async () => {
     try {
-      const [sumRes, budRes, fcRes, expRes, alRes, gRes] = await Promise.all([
+      const [sumRes, budRes, fcRes, expRes, alRes, gRes, dbRes] = await Promise.all([
         fetchMonthlySummary("2026-10"),
         fetchCurrentBudget("2026-10"),
         fetchForecast("2026-10"),
         fetchExpenses({ month: "2026-10" }),
         fetchAlerts(false),
         fetchGoals(),
+        fetchDatabaseStatus().catch(() => null),
       ]);
 
       setSummary(sumRes);
@@ -69,6 +81,7 @@ export default function App() {
       setExpenses(expRes);
       setAlerts(alRes);
       setGoals(gRes);
+      if (dbRes) setDbStatus(dbRes);
     } catch (err) {
       console.error("Error loading application data:", err);
     } finally {
@@ -103,6 +116,14 @@ export default function App() {
           ===================================================================== */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         
+        {/* Flagship: 3D Clay Cozy Desk Workspace with Characters (User uploaded 3D scene) */}
+        {bgTheme === 'clay3d' && (
+          <div 
+            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-60 filter contrast-[1.05] brightness-95"
+            style={{ backgroundImage: `url('/3d_clay_workspace_bg.png')` }}
+          />
+        )}
+
         {/* Active 3D Background Image Layer with Parallax Breathing */}
         {bgTheme === 'chakra' && (
           <div 
@@ -124,7 +145,7 @@ export default function App() {
         )}
 
         {/* Ambient Dark Vignette & Mesh Depth Gradients to guarantee 100% text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060a14]/90 via-[#060a14]/75 to-[#060a14]/95 backdrop-blur-[0.5px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060a14]/85 via-[#060a14]/65 to-[#060a14]/90 backdrop-blur-[0.5px]" />
 
         {/* Floating 3D Character Hologram Asset in Bottom-Right Corner */}
         <div className="hidden xl:block absolute -bottom-8 -right-6 w-80 h-80 pointer-events-none opacity-40 animate-3d-character z-0">
@@ -165,6 +186,8 @@ export default function App() {
         onToggleChat={() => setIsChatOpen(prev => !prev)}
         onToggleAlerts={() => setIsAlertsOpen(prev => !prev)}
         onTogglePhoneAlerts={() => setIsPhoneModalOpen(prev => !prev)}
+        onOpenMongoModal={() => setIsMongoModalOpen(true)}
+        dbStatus={dbStatus}
         unreadAlertCount={unreadAlerts.length}
         onSeedDemo={handleSeedDemo}
         isSeeding={isSeeding}
@@ -190,6 +213,12 @@ export default function App() {
                 onOpenAddExpense={() => setIsAddExpenseOpen(true)}
                 onToggleChat={() => setIsChatOpen(true)}
                 onTogglePhoneAlerts={() => setIsPhoneModalOpen(true)}
+              />
+            )}
+
+            {activeTab === 'enterprise' && (
+              <HackathonDifferentiatorsView
+                onOpenChatWithMessage={handleOpenChatWithMessage}
               />
             )}
 
@@ -254,47 +283,57 @@ export default function App() {
       </button>
 
       {/* Floating 3D Background Controller */}
-      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-xl shadow-2xl">
-        <span className="text-[10px] font-mono font-bold text-slate-400 px-2 flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
-          <span>3D BG:</span>
+      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-2 p-1.5 px-3 rounded-2xl bg-slate-900/90 border border-white/20 backdrop-blur-2xl shadow-2xl">
+        <span className="text-xs font-mono font-bold text-slate-300 px-2 flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+          <span>3D Studio:</span>
         </span>
         <button
+          onClick={() => setBgTheme('clay3d')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            bgTheme === 'clay3d' 
+              ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.6)] border border-white/30' 
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          🎨 Clay Studio
+        </button>
+        <button
           onClick={() => setBgTheme('chakra')}
-          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
             bgTheme === 'chakra' 
-              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.6)]' 
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.6)] border border-white/30' 
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
         >
           🌀 Shinobi
         </button>
         <button
           onClick={() => setBgTheme('cyber')}
-          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
             bgTheme === 'cyber' 
-              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_12px_rgba(6,182,212,0.6)]' 
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.6)] border border-white/30' 
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
         >
           🤖 Cyber
         </button>
         <button
           onClick={() => setBgTheme('ghibli')}
-          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
             bgTheme === 'ghibli' 
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.6)]' 
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.6)] border border-white/30' 
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
         >
           🌿 Ghibli
         </button>
         <button
           onClick={() => setBgTheme('none')}
-          className={`px-2 py-1 rounded-xl text-[11px] font-bold transition-all ${
+          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
             bgTheme === 'none' 
               ? 'bg-slate-700 text-white' 
-              : 'text-slate-500 hover:text-white hover:bg-slate-800/60'
+              : 'text-slate-500 hover:text-white hover:bg-white/5'
           }`}
           title="Minimal Mesh Background"
         >
@@ -313,6 +352,7 @@ export default function App() {
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         onDataMutated={loadAllData}
+        initialMessage={chatInitialPrompt}
       />
 
       <AnomalyAlerts
@@ -332,6 +372,12 @@ export default function App() {
       <PhoneAlertsModal
         isOpen={isPhoneModalOpen}
         onClose={() => setIsPhoneModalOpen(false)}
+      />
+
+      <MongoConnectionModal
+        isOpen={isMongoModalOpen}
+        onClose={() => setIsMongoModalOpen(false)}
+        onDataMutated={loadAllData}
       />
 
       {/* Footer */}

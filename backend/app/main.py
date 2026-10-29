@@ -9,7 +9,7 @@ from backend.app.routers import (
     audit, policies, dashboard, agent, notifications,
     expenses, analytics, budgets, goals
 )
-from backend.app.services.seed_data import seed_enterprise_data
+from backend.app.services.seed_data import seed_enterprise_data, seed_demo_data
 from backend.app.services.workflow import check_and_send_due_reminders
 
 @asynccontextmanager
@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
     # Initialize MongoDB database client and indexes
     await init_db()
     
-    # Auto-seed demo enterprise data if policies or claims collection is empty
+    # Auto-seed demo enterprise & real-time expense data if empty
     try:
         db = get_database()
         if db is not None:
@@ -26,6 +26,13 @@ async def lifespan(app: FastAPI):
                 print("[Expense Pilot] Initializing realistic corporate enterprise data (Meridian Dev-C04)...")
                 await seed_enterprise_data(db)
                 print("[Expense Pilot] Enterprise sample data ready!")
+            
+            expense_count = await db.expenses.count_documents({})
+            if expense_count == 0:
+                print("[Expense Pilot] Initializing realistic real-time expense data...")
+                await seed_demo_data(db, "user_default")
+                await seed_demo_data(db, "demo_user_1")
+                print("[Expense Pilot] Real-time expense & budget data ready!")
     except Exception as e:
         print(f"[Expense Pilot] Notice checking seed data: {e}")
 
@@ -87,6 +94,16 @@ app.include_router(expenses.router)
 app.include_router(analytics.router)
 app.include_router(budgets.router)
 app.include_router(goals.router)
+
+@app.get("/api/system/db-status")
+async def get_system_database_status():
+    from backend.app.database import get_db_status_info
+    return await get_db_status_info()
+
+@app.post("/api/system/reconnect")
+async def trigger_atlas_reconnect():
+    from backend.app.database import reconnect_atlas_db
+    return await reconnect_atlas_db()
 
 @app.get("/")
 async def root():
