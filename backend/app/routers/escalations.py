@@ -4,6 +4,7 @@ from backend.app.database import get_db
 from backend.app.auth import get_current_user
 from backend.app.schemas import EscalationOut, EscalationCreate, EscalationResolveRequest
 from backend.app.services.escalation import create_escalation, resolve_escalation, get_escalations
+from backend.app.data_access import fetch_scoped_escalations
 
 router = APIRouter(prefix="/api/escalations", tags=["Escalations"])
 
@@ -15,9 +16,14 @@ async def list_escalations(
     db = Depends(get_db)
 ):
     """
-    Returns list of corporate escalations (duplicate invoices, policy violations, PO mismatches).
+    Returns role-filtered corporate escalations via centralized Data Access Layer.
     """
-    return await get_escalations(db, status=status, severity=severity, limit=100)
+    filter_dict = {}
+    if status:
+        filter_dict["status"] = status
+    if severity:
+        filter_dict["severity"] = severity
+    return await fetch_scoped_escalations(db=db, user=current_user, additional_filter=filter_dict, limit=100)
 
 
 @router.post("", response_model=EscalationOut)

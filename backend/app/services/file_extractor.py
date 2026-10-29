@@ -155,3 +155,4 @@ def extract_tabular_data(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         "summary": summary,
         "markdown_preview": markdown_table
     }
+

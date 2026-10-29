@@ -46,12 +46,15 @@ async def init_db():
     try:
         # Enterprise Collection Indexes
         await db.users.create_index("id", unique=True)
+        await db.users.create_index("email", unique=True)
         await db.policies.create_index([("doc_name", 1), ("section_id", 1)], unique=True)
         await db.claims.create_index("claim_no", unique=True)
         await db.claims.create_index([("employee_id", 1), ("status", 1)])
         await db.invoices.create_index("invoice_no")
+        await db.invoices.create_index([("vendor_id", 1), ("normalized_invoice_no", 1)], unique=True, sparse=True)
         await db.invoices.create_index([("vendor_id", 1), ("status", 1)])
         await db.purchase_orders.create_index("po_no", unique=True)
+        await db.approvals.create_index([("entity_id", 1), ("state", 1)], unique=True, partialFilterExpression={"state": "Pending"})
         await db.approvals.create_index([("entity_id", 1), ("approver_id", 1), ("state", 1)])
         await db.escalations.create_index([("entity_id", 1), ("status", 1)])
         await db.audit_log.create_index([("ts", -1), ("actor_id", 1)])

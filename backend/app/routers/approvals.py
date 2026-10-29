@@ -7,6 +7,7 @@ from backend.app.models import serialize_docs, serialize_doc, build_id_query
 from backend.app.services.workflow import (
     decide_approval, send_approval_reminder, check_and_send_due_reminders
 )
+from backend.app.data_access import fetch_scoped_approvals
 
 router = APIRouter(prefix="/api/approvals", tags=["Approvals Workflow"])
 
@@ -18,39 +19,18 @@ async def list_approvals(
     db = Depends(get_db)
 ):
     """
-    Returns role-filtered approvals:
+    Returns role-filtered approvals via centralized Data Access Layer:
     - Manager: approvals assigned to them
-    - Finance: all approvals
-    - Employee: approvals for their own claims
-    - Vendor: approvals for their invoices
+    - Finance / Admin: all approvals
+    - Employee / Vendor: approvals for their own items
     """
-    role = current_user.get("role", "employee")
-    user_id = current_user.get("id", "")
-
-    query: Dict[str, Any] = {}
+    filter_dict: Dict[str, Any] = {}
     if state:
-        query["state"] = state
+        filter_dict["state"] = state
     if entity_type:
-        query["entity_type"] = entity_type
+        filter_dict["entity_type"] = entity_type
 
-    if role == "finance":
-        pass  # Global visibility
-    elif role == "manager":
-        query["$or"] = [
-            {"approver_id": user_id},
-            {"entity_id": {"$in": [c["claim_no"] for c in await db.claims.find({"employee_id": user_id}, {"claim_no": 1}).to_list(100)]}}
-        ]
-    elif role == "employee":
-        user_claims = await db.claims.find({"employee_id": user_id}, {"claim_no": 1}).to_list(100)
-        c_ids = [c["claim_no"] for c in user_claims]
-        query["entity_id"] = {"$in": c_ids}
-    elif role == "vendor":
-        vendor_invs = await db.invoices.find({"vendor_id": user_id}, {"invoice_no": 1}).to_list(100)
-        i_ids = [i["invoice_no"] for i in vendor_invs]
-        query["entity_id"] = {"$in": i_ids}
-
-    docs = await db.approvals.find(query).sort([("created_at", -1)]).to_list(200)
-    return serialize_docs(docs)
+    return await fetch_scoped_approvals(db=db, user=current_user, additional_filter=filter_dict, limit=200)
 
 
 @router.post("/{approval_id}/decide")

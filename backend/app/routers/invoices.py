@@ -13,6 +13,7 @@ from backend.app.schemas import InvoiceCreate, InvoiceOut
 from backend.app.services.rules import audit_and_flag_invoice
 from backend.app.services.audit import write_audit
 from backend.app.services.ocr import check_mindee_status, parse_invoice_document
+from backend.app.data_access import fetch_scoped_invoices
 
 router = APIRouter(prefix="/api/invoices", tags=["Vendor Invoices"])
 
@@ -36,31 +37,25 @@ async def list_invoices(
     db = Depends(get_db)
 ):
     """
-    Returns role-filtered vendor invoices:
+    Returns role-filtered vendor invoices via centralized Data Access Layer:
     - Vendor: only invoices issued by this vendor
-    - Finance: all corporate invoices
+    - Finance / Admin: all corporate invoices
     - Manager: department procurement invoices
-    - Employee: access denied
+    - Employee: access denied (HTTP 403)
     """
-    role = current_user.get("role", "employee")
-    user_id = current_user.get("id", "")
-
+    role = (current_user.get("role") or "employee").lower()
     if role == "employee":
         raise HTTPException(status_code=403, detail="Forbidden: Internal employees cannot view vendor invoices.")
 
-    query: Dict[str, Any] = {}
+    filter_dict: Dict[str, Any] = {}
     if status:
-        query["status"] = status
+        filter_dict["status"] = status
     if po_no:
-        query["po_no"] = po_no
+        filter_dict["po_no"] = po_no
+    if vendor_id and role in ["finance", "admin"]:
+        filter_dict["vendor_id"] = vendor_id
 
-    if role == "vendor":
-        query["vendor_id"] = user_id
-    elif vendor_id:
-        query["vendor_id"] = vendor_id
-
-    docs = await db.invoices.find(query).sort([("invoice_date", -1)]).to_list(300)
-    return serialize_docs(docs)
+    return await fetch_scoped_invoices(db=db, user=current_user, additional_filter=filter_dict, limit=300)
 
 
 @router.post("", response_model=InvoiceOut)

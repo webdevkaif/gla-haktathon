@@ -9,6 +9,7 @@ from backend.app.schemas import ClaimCreate, ClaimOut
 from backend.app.models import Claim, Approval, serialize_doc, serialize_docs, build_id_query
 from backend.app.services.rules import audit_and_flag_claim
 from backend.app.services.audit import write_audit
+from backend.app.data_access import fetch_scoped_claims, get_claims_scope_query
 
 router = APIRouter(prefix="/api/claims", tags=["Reimbursement Claims"])
 
@@ -20,37 +21,19 @@ async def list_claims(
     db = Depends(get_db)
 ):
     """
-    Returns role-filtered reimbursement claims:
+    Returns role-filtered reimbursement claims using centralized Data Access Layer:
     - Employee: only their own claims
     - Manager: direct team claims or assigned approvals
-    - Finance: all corporate claims
+    - Finance / Admin: all corporate claims
     - Vendor: empty list (vendors do not access employee claims)
     """
-    role = current_user.get("role", "employee")
-    user_id = current_user.get("id", "")
-
-    if role == "vendor":
-        return []
-
-    query = {}
+    filter_dict = {}
     if status:
-        query["status"] = status
+        filter_dict["status"] = status
     if category:
-        query["category"] = category
+        filter_dict["category"] = category
 
-    if role == "employee":
-        query["employee_id"] = user_id
-    elif role == "manager":
-        # Direct reports or assigned approver or self
-        direct_reports = await db.users.find({"manager_id": user_id}, {"id": 1}).to_list(100)
-        report_ids = [u["id"] for u in direct_reports] + [user_id]
-        query["$or"] = [
-            {"employee_id": {"$in": report_ids}},
-            {"approver_id": user_id}
-        ]
-
-    docs = await db.claims.find(query).sort([("created_at", -1)]).to_list(200)
-    return serialize_docs(docs)
+    return await fetch_scoped_claims(db=db, user=current_user, additional_filter=filter_dict, limit=200)
 
 
 @router.post("", response_model=ClaimOut)

@@ -9,14 +9,34 @@ from pydantic import BaseModel, Field
 class UserOut(BaseModel):
     id: str
     name: str
-    role: str  # employee | vendor | manager | finance
+    role: str  # employee | vendor | manager | finance | admin
     grade: Optional[str] = None
     email: Optional[str] = None
     manager_id: Optional[str] = None
+    vendor_id: Optional[str] = None
     is_sample: Optional[bool] = True
 
     class Config:
         from_attributes = True
+
+class LoginRequest(BaseModel):
+    username: str = Field(..., description="Email address or user ID (e.g. 'emp_john' or 'john.doe@meridian.com')")
+    password: str = Field(..., description="Account password (demo password is 'password123')")
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+class DemoAccountOut(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    grade: Optional[str] = None
+    vendor_id: Optional[str] = None
+    password: str = "password123"
+    description: str = ""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Policy Schemas

@@ -8,16 +8,64 @@ export function setCurrentUserId(userId) {
   localStorage.setItem("expense_pilot_user", userId);
 }
 
+export function getAuthToken() {
+  return localStorage.getItem("expense_pilot_token") || null;
+}
+
+export function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem("expense_pilot_token", token);
+  } else {
+    localStorage.removeItem("expense_pilot_token");
+  }
+}
+
 function getAuthHeaders(extra = {}) {
-  return {
+  const headers = {
     "X-User-Id": getCurrentUserId(),
     ...extra
   };
+  const token = getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Users & Roles
+// Users & Authentication
 // ─────────────────────────────────────────────────────────────────────────────
+
+export async function loginUser(username, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Authentication failed");
+  }
+  const data = await res.json();
+  if (data.access_token) {
+    setAuthToken(data.access_token);
+    if (data.user?.id) {
+      setCurrentUserId(data.user.id);
+    }
+  }
+  return data;
+}
+
+export function logoutUser() {
+  setAuthToken(null);
+  setCurrentUserId("emp_john");
+}
+
+export async function fetchDemoAccounts() {
+  const res = await fetch(`${API_BASE}/auth/demo-accounts`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch demo accounts");
+  return res.json();
+}
 
 export async function fetchUsers() {
   const res = await fetch(`${API_BASE}/users`, { headers: getAuthHeaders() });
@@ -26,7 +74,7 @@ export async function fetchUsers() {
 }
 
 export async function fetchMe() {
-  const res = await fetch(`${API_BASE}/users/me`, { headers: getAuthHeaders() });
+  const res = await fetch(`${API_BASE}/auth/me`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error("Failed to fetch user profile");
   return res.json();
 }

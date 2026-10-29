@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List, Union
 import json
 import uuid
+import re
 from bson import ObjectId
 
 def serialize_doc(doc: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -56,6 +57,8 @@ class User:
         grade: Optional[str] = None,
         email: Optional[str] = None,
         manager_id: Optional[str] = None,
+        vendor_id: Optional[str] = None,
+        password_hash: Optional[str] = None,
         is_sample: bool = True,
         **kwargs
     ) -> Dict[str, Any]:
@@ -63,10 +66,12 @@ class User:
         return {
             "id": uid,
             "name": name,
-            "role": role,  # employee | vendor | manager | finance
+            "role": role,  # employee | vendor | manager | finance | admin
             "grade": grade,  # L1, L2, L3, L4, L5
             "email": email or f"{uid}@meridian.com",
             "manager_id": manager_id,
+            "vendor_id": vendor_id,
+            "password_hash": password_hash,
             "is_sample": is_sample,
             "created_at": datetime.utcnow()
         }
@@ -130,6 +135,11 @@ class Claim:
             "created_at": datetime.utcnow()
         }
 
+def normalize_invoice_number(inv_no: str) -> str:
+    """Normalizes invoice numbers by lowercasing, stripping punctuation, spaces, and leading zeros."""
+    cleaned = re.sub(r'[^a-zA-Z0-9]', '', str(inv_no)).lower()
+    return cleaned.lstrip('0') or cleaned
+
 class Invoice:
     @staticmethod
     def create(
@@ -149,9 +159,11 @@ class Invoice:
         file_name: Optional[str] = None,
         is_sample: bool = True
     ) -> Dict[str, Any]:
+        norm_no = normalize_invoice_number(invoice_no)
         return {
             "id": invoice_no,
             "invoice_no": invoice_no,
+            "normalized_invoice_no": norm_no,
             "vendor_id": vendor_id,
             "vendor_name": vendor_name or vendor_id,
             "po_no": po_no,

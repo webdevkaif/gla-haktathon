@@ -9,26 +9,51 @@ import {
   User, 
   RotateCcw,
   Sparkles,
-  Building2
+  Building2,
+  KeyRound
 } from 'lucide-react';
-import { getCurrentUserId, setCurrentUserId } from '../api';
+import { getCurrentUserId, setCurrentUserId, loginUser } from '../api';
+import LoginModal from './LoginModal';
 
 const DEMO_USERS = [
-  { id: 'emp_john', name: 'John Doe', role: 'Employee', grade: 'L2', dept: 'Sales', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-  { id: 'ven_acme', name: 'Acme Supplies', role: 'Vendor', grade: 'Ext', dept: 'Procurement', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  { id: 'mgr_sarah', name: 'Sarah Connor', role: 'Manager', grade: 'L4', dept: 'Sales', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-  { id: 'fin_alex', name: 'Alex Morgan', role: 'Finance Controller', grade: 'L4', dept: 'Finance', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  { id: 'emp_john', name: 'John Doe', email: 'john.doe@meridian.com', role: 'Employee', grade: 'L2', dept: 'Sales', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  { id: 'emp_alice', name: 'Alice Smith', email: 'alice.smith@meridian.com', role: 'Employee', grade: 'L3', dept: 'Product', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+  { id: 'ven_acme', name: 'Acme Supplies', email: 'billing@acmesupplies.com', role: 'Vendor', grade: 'Ext', dept: 'Procurement', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+  { id: 'ven_techcorp', name: 'TechCorp Solutions', email: 'orders@techcorp.com', role: 'Vendor', grade: 'Ext', dept: 'IT Hardware', badge: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' },
+  { id: 'mgr_sarah', name: 'Sarah Connor', email: 'sarah.connor@meridian.com', role: 'Manager', grade: 'L4', dept: 'Sales', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  { id: 'fin_alex', name: 'Alex Morgan', email: 'finance@meridian.com', role: 'Finance Controller', grade: 'L5', dept: 'Finance', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  { id: 'admin_rachel', name: 'Rachel Green', email: 'admin@meridian.com', role: 'Admin', grade: 'L5', dept: 'Executive', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
 ];
 
 export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetData }) {
   const [selectedUserId, setSelectedUserId] = useState(getCurrentUserId());
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  const handleRoleSelect = (e) => {
+  const handleRoleSelect = async (e) => {
     const newId = e.target.value;
     setSelectedUserId(newId);
     setCurrentUserId(newId);
+    
+    // Automatically acquire JWT token for the selected demo account
+    const userObj = DEMO_USERS.find(u => u.id === newId);
+    if (userObj) {
+      try {
+        await loginUser(userObj.email, 'password123');
+      } catch (err) {
+        console.log("Auto-login token notice:", err);
+      }
+    }
+
     if (onUserChange) onUserChange(newId);
+  };
+
+  const handleLoginSuccess = (user) => {
+    if (user?.id) {
+      setSelectedUserId(user.id);
+      setCurrentUserId(user.id);
+      if (onUserChange) onUserChange(user.id);
+    }
   };
 
   const handleReset = async () => {
@@ -79,14 +104,24 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
             </div>
           </div>
 
-          {/* Right Actions: Role Switcher & Reset */}
+          {/* Right Actions: Demo Accounts / Login & Role Switcher */}
           <div className="flex items-center gap-3">
             
-            {/* Role Switcher */}
+            {/* Quick Demo Accounts Modal Trigger */}
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/40 text-teal-300 hover:text-white transition-all shadow-sm"
+              title="Open Demo Accounts and Credentials for Hackathon Judges"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-teal-400" />
+              <span className="hidden sm:inline">Demo Accounts</span>
+            </button>
+
+            {/* Quick Role Switcher */}
             <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1.5 shadow-sm">
               <User className="w-4 h-4 text-slate-400" />
               <div className="flex flex-col">
-                <span className="text-[10px] text-slate-400 leading-none">Active Role</span>
+                <span className="text-[10px] text-slate-400 leading-none">Active User</span>
                 <select
                   value={selectedUserId}
                   onChange={handleRoleSelect}
@@ -118,7 +153,7 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
         </div>
 
         {/* Tab Navigation */}
-        <nav className="flex space-x-1 overflow-x-auto py-2 border-t border-slate-800/60 scrollbar-none">
+        <div className="flex space-x-1 sm:space-x-2 border-t border-slate-800 pt-2 pb-2 overflow-x-auto scrollbar-none">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -128,17 +163,26 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
                 onClick={() => setActiveTab(item.id)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-teal-500/20 to-sky-500/20 text-teal-300 border border-teal-500/40 shadow-sm'
+                    ? 'bg-gradient-to-r from-teal-500/20 to-sky-500/20 border border-teal-500/50 text-teal-300 font-semibold shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-teal-400' : 'text-slate-400'}`} />
-                {item.label}
+                <span>{item.label}</span>
               </button>
             );
           })}
-        </nav>
+        </div>
+
       </div>
+
+      {/* Demo Accounts Login Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        currentUserId={selectedUserId}
+      />
     </header>
   );
 }
