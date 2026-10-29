@@ -130,10 +130,45 @@ export async function seedDemoData() {
   return res.json();
 }
 
+let cachedToken = null;
+
+export async function ensureAuthToken() {
+  if (cachedToken) return cachedToken;
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  if (stored) {
+    cachedToken = stored;
+    return stored;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'fin_alex', password: 'password123' })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token) {
+        cachedToken = data.access_token;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('auth_token', data.access_token);
+        }
+        return data.access_token;
+      }
+    }
+  } catch (e) {
+    console.log("Auto-token notice:", e);
+  }
+  return null;
+}
+
 export async function sendAgentMessage(message) {
+  const token = await ensureAuthToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}/agent/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ message }),
   });
   if (!res.ok) throw new Error("Agent message failed");
@@ -144,20 +179,31 @@ export async function fetchInvoices(params = {}) {
   const query = new URLSearchParams();
   if (params.category && params.category !== "All") query.append("category", params.category);
   if (params.status) query.append("status", params.status);
-  const res = await fetch(`${API_BASE}/invoices?${query.toString()}`);
+
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
+  const res = await fetch(`${API_BASE}/invoices?${query.toString()}`, { headers });
   if (!res.ok) throw new Error("Failed to fetch invoices");
   return res.json();
 }
 
 export async function fetchInvoiceSummary() {
-  const res = await fetch(`${API_BASE}/invoices/summary`);
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
+  const res = await fetch(`${API_BASE}/invoices/summary`, { headers });
   if (!res.ok) throw new Error("Failed to fetch invoice summary");
   return res.json();
 }
 
 export async function uploadInvoiceFile(formData) {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
   const res = await fetch(`${API_BASE}/invoices/upload`, {
     method: "POST",
+    headers,
     body: formData,
   });
   if (!res.ok) throw new Error("Failed to upload invoice");
@@ -165,9 +211,13 @@ export async function uploadInvoiceFile(formData) {
 }
 
 export async function createInvoice(data) {
+  const token = await ensureAuthToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}/invoices`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create invoice");
@@ -175,8 +225,12 @@ export async function createInvoice(data) {
 }
 
 export async function deleteInvoice(id) {
+  const token = await ensureAuthToken();
+  const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
   const res = await fetch(`${API_BASE}/invoices/${id}`, {
     method: "DELETE",
+    headers,
   });
   if (!res.ok) throw new Error("Failed to delete invoice");
   return res.json();

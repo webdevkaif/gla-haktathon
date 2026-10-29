@@ -207,6 +207,27 @@ async def upload_invoice(
     return serialize_doc(inv_dict)
 
 
+@router.get("/summary")
+async def get_invoice_summary(
+    current_user = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    """Returns invoice summary metrics: total_invoices, total_amount, flagged_count, pending_amount."""
+    invoices = await db.invoices.find({}).to_list(length=500)
+    total_count = len(invoices)
+    total_amount = sum(float(i.get("amount", 0.0)) for i in invoices)
+    flagged_count = sum(1 for i in invoices if i.get("status") in ["FLAGGED", "duplicate", "flagged"])
+    paid_count = sum(1 for i in invoices if i.get("status") in ["PAID", "paid"])
+    pending_amount = sum(float(i.get("amount", 0.0)) for i in invoices if i.get("status") in ["RECEIVED", "pending", "VERIFIED"])
+    return {
+        "total_invoices": total_count,
+        "total_amount": round(total_amount, 2),
+        "flagged_count": flagged_count,
+        "paid_count": paid_count,
+        "pending_amount": round(pending_amount, 2)
+    }
+
+
 @router.get("/{invoice_no}", response_model=InvoiceOut)
 async def get_invoice_detail(
     invoice_no: str,
