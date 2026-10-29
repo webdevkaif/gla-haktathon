@@ -344,3 +344,4 @@ async def check_and_send_due_reminders(db: Any) -> Dict[str, Any]:
         "reminders_dispatched": len(reminded),
         "reminded_approval_ids": reminded
     }
+

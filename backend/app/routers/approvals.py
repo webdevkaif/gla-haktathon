@@ -110,3 +110,4 @@ async def trigger_due_reminders_check(
     """
     res = await check_and_send_due_reminders(db)
     return res
+

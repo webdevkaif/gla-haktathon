@@ -559,3 +559,4 @@ export default function ClaimsInvoicesView({ currentUser }) {
     </div>
   );
 }
+

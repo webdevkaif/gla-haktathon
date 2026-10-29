@@ -388,3 +388,4 @@ export default function FinanceDashboard({ onNavigateTab }) {
     </div>
   );
 }
+

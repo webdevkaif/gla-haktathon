@@ -49,3 +49,4 @@ async def get_policy_section(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Policy section '{section_id}' not found.")
     return serialize_doc(doc)
+

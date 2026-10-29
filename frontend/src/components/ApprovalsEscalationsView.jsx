@@ -398,3 +398,4 @@ export default function ApprovalsEscalationsView({ currentUser }) {
     </div>
   );
 }
+
