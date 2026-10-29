@@ -95,31 +95,43 @@ Full tool execution with deterministic calculations:
 
 ## 💻 Quick Start & Running Locally
 
-### 1. Backend Setup
+### ⚡ Option A: All-in-One Startup (Recommended)
+Run **both Backend and Frontend** with a single command from the project root:
+
 ```bash
-# From workspace root
-cd backend
+# Using npm:
+npm run dev
+# or
+npm start
 
-# Configure your MongoDB Atlas password in .env:
-# Open backend/.env and replace <db_password> with your actual MongoDB user password
-
-# Virtual environment is located at backend/.venv
-./.venv/bin/python run.py
+# Or using bash:
+./start.sh
 ```
-> Server starts on `http://127.0.0.1:8000`. Connected to MongoDB Atlas (`cluster0.cllnh1c.mongodb.net`) and auto-seeded with realistic financial demo data.
 
-### 2. Frontend Setup
+> 🌐 **Frontend UI**: [http://127.0.0.1:5173](http://127.0.0.1:5173)  
+> ⚙️ **Backend API**: [http://127.0.0.1:8000](http://127.0.0.1:8000)  
+> 📚 **API Swagger Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+---
+
+### 🛠️ Option B: Run in Separate Terminals
+
+#### Terminal 1 — Backend
 ```bash
-# From workspace root
-cd frontend
-
-# Install dependencies (already installed)
-npm install
-
-# Start Vite dev server
-npm run dev -- --host 127.0.0.1 --port 5173
+# Run from root or backend directory:
+python run.py
+# or
+npm run backend
 ```
-> Open `http://127.0.0.1:5173` in your browser.
+> Server starts on `http://127.0.0.1:8000`. Connected to MongoDB Atlas with automatic fallback engine and initial seed data.
+
+#### Terminal 2 — Frontend
+```bash
+npm run frontend
+# or
+cd frontend && npm run dev
+```
+> Opens `http://127.0.0.1:5173` in your browser.
 
 ---
 
