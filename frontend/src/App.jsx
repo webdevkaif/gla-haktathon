@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import LoginGateway from './components/LoginGateway';
-import SpatialCommandDashboard from './components/SpatialCommandDashboard';
-import AgentChat from './components/AgentChat';
-import FinanceDashboard from './components/FinanceDashboard';
-import ClaimsInvoicesView from './components/ClaimsInvoicesView';
-import ApprovalsEscalationsView from './components/ApprovalsEscalationsView';
-import AuditTrailView from './components/AuditTrailView';
-import PoliciesView from './components/PoliciesView';
-import { getCurrentUserId, setCurrentUserId, seedEnterpriseDemoData, getAuthToken, loginUser } from './api';
-import { AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import FintechSidebar from './components/FintechSidebar';
+import FintechHeader from './components/FintechHeader';
+import FintechDashboard from './components/FintechDashboard';
+import FintechTransactions from './components/FintechTransactions';
+import FintechAnalytics from './components/FintechAnalytics';
+import FintechAIAssistant from './components/FintechAIAssistant';
+import FintechApprovalsAudit from './components/FintechApprovalsAudit';
+import FintechSettings from './components/FintechSettings';
+import AddExpenseModal from './components/AddExpenseModal';
+import LoginModal from './components/LoginModal';
+import { 
+  getCurrentUserId, 
+  setCurrentUserId, 
+  seedEnterpriseDemoData, 
+  getAuthToken, 
+  loginUser 
+} from './api';
+import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 const DEMO_USERS_MAP = {
   emp_john: { id: 'emp_john', name: 'John Doe', role: 'employee', grade: 'L2', dept: 'Sales' },
@@ -22,15 +29,16 @@ const DEMO_USERS_MAP = {
 };
 
 export default function App() {
-  // Dual-State Interface: Pre-Auth (Login Gateway) vs Post-Auth (Spatial Dashboard)
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [activeTab, setActiveTab] = useState('spatial'); // default spatial dashboard view
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'transactions' | 'analytics' | 'ai_assistant' | 'approvals_audit' | 'settings'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentUserId, setUserIdState] = useState(getCurrentUserId());
   const [currentUser, setCurrentUser] = useState(DEMO_USERS_MAP[currentUserId] || DEMO_USERS_MAP.emp_john);
-  const [toast, setToast] = useState(null);
+  const [dateRange, setDateRange] = useState('this_month');
   
-  // Ambient Mesh Themes: citrus (Orange & Green flagship) | obsidian | emerald | solar
-  const [currentTheme, setCurrentTheme] = useState('citrus');
+  // Modals & Notifications
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [toast, setToast] = useState(null);
 
   // Auto-acquire JWT token on initial load
   useEffect(() => {
@@ -49,7 +57,7 @@ export default function App() {
   const handleUserChange = (newUserId) => {
     setUserIdState(newUserId);
     setCurrentUserId(newUserId);
-    const u = DEMO_USERS_MAP[newUserId] || { id: newUserId, name: newUserId, role: 'employee' };
+    const u = DEMO_USERS_MAP[newUserId] || { id: newUserId, name: newUserId, role: 'employee', grade: 'L2' };
     setCurrentUser(u);
     showToast(`Switched active session to: ${u.name} (${u.role.toUpperCase()})`);
   };
@@ -58,186 +66,148 @@ export default function App() {
     if (userPayload?.id) {
       handleUserChange(userPayload.id);
     }
-    setIsAuthenticated(true);
-    setActiveTab('spatial');
-    showToast(`Workspace initialized: Welcome, ${userPayload?.name || 'User'}!`);
+    showToast(`Welcome back, ${userPayload?.name || 'User'}!`);
   };
 
-  const handleLockSession = () => {
-    setIsAuthenticated(false);
-    showToast("Session locked. Returning to Glassmorphic Gateway.", "info");
+  const handleAddExpenseSuccess = (claim) => {
+    showToast(`Expense claim ${claim.claim_no || 'submitted'} created successfully!`);
   };
 
   const handleResetData = async () => {
     try {
       await seedEnterpriseDemoData();
       showToast("Meridian sample data re-seeded successfully!");
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 1200);
     } catch (err) {
       showToast("Failed to re-seed sample data", "error");
     }
   };
 
-  // Ambient mesh gradient background styles
-  const themeBgClasses = {
-    citrus: 'bg-[#060a08]',
-    emerald: 'bg-[#040e09]',
-    solar: 'bg-[#120805]',
-    obsidian: 'bg-[#07090E]'
-  };
-
-  const themeOrbs = {
-    citrus: {
-      orb1: 'bg-emerald-500/25',
-      orb2: 'bg-orange-500/25',
-      orb3: 'bg-amber-400/20'
-    },
-    emerald: {
-      orb1: 'bg-emerald-600/20',
-      orb2: 'bg-teal-500/20',
-      orb3: 'bg-green-500/15'
-    },
-    solar: {
-      orb1: 'bg-orange-600/20',
-      orb2: 'bg-amber-500/20',
-      orb3: 'bg-rose-600/15'
-    },
-    obsidian: {
-      orb1: 'bg-indigo-600/15',
-      orb2: 'bg-cyan-500/15',
-      orb3: 'bg-violet-600/15'
-    }
-  };
-
-  const activeOrbs = themeOrbs[currentTheme] || themeOrbs.citrus;
-
   return (
-    <div className={`min-h-screen ${themeBgClasses[currentTheme] || 'bg-[#07090E]'} text-slate-100 flex flex-col font-sans relative transition-colors duration-700 selection:bg-cyan-500 selection:text-white`}>
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex antialiased">
       
-      {/* Dynamic Ambient Mesh Canvas (Refracting Colors Under Glass) */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className={`absolute -top-32 -left-32 w-[600px] h-[600px] ${activeOrbs.orb1} rounded-full blur-[140px] animate-float-1 transition-all duration-1000`} />
-        <div className={`absolute top-1/3 -right-40 w-[550px] h-[550px] ${activeOrbs.orb2} rounded-full blur-[160px] animate-float-2 transition-all duration-1000`} />
-        <div className={`absolute -bottom-32 left-1/4 w-[650px] h-[650px] ${activeOrbs.orb3} rounded-full blur-[150px] animate-float-3 transition-all duration-1000`} />
-      </div>
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          1. SLIM COLLAPSIBLE SIDEBAR
+          ───────────────────────────────────────────────────────────────────────────── */}
+      <FintechSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+        currentUser={currentUser}
+        onUserChange={handleUserChange}
+        onOpenDemoAccounts={() => setIsLoginModalOpen(true)}
+      />
 
-      {/* Global Interactive Notification Toast */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50 animate-bounce">
-          <div className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 shadow-2xl border backdrop-blur-xl ${
-            toast.type === 'success'
-              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
-              : toast.type === 'error'
-              ? 'bg-rose-950/90 text-rose-300 border-rose-500/40'
-              : 'bg-slate-900/90 text-cyan-300 border-cyan-500/40'
-          }`}>
-            {toast.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-cyan-400" />
-            )}
-            <span>{toast.message}</span>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          DUAL-STATE INTERFACE SWITCH
-          ========================================================================= */}
-      {!isAuthenticated ? (
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          2. MAIN CONTENT AREA (Header + Active View)
+          ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
         
-        /* -------------------------------------------------------------------------
-           VIEW 1: The Glassmorphic Login & Session Gateway (Pre-Auth State)
-           ------------------------------------------------------------------------- */
-        <main className="flex-1 relative z-10">
-          <LoginGateway 
-            onLoginSuccess={handleLoginSuccess}
-            currentTheme={currentTheme}
-            setCurrentTheme={setCurrentTheme}
-          />
+        {/* Clean Fintech Top Header */}
+        <FintechHeader
+          activeTab={activeTab}
+          currentUser={currentUser}
+          onOpenAddExpense={() => setIsAddExpenseOpen(true)}
+          onOpenDemoAccounts={() => setIsLoginModalOpen(true)}
+          onResetData={handleResetData}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+        />
+
+        {/* View Content Router */}
+        <main className="flex-1 p-5 sm:p-6 lg:p-8 overflow-y-auto">
+          {activeTab === 'dashboard' && (
+            <FintechDashboard 
+              onNavigateTab={setActiveTab} 
+              onOpenAddExpense={() => setIsAddExpenseOpen(true)} 
+            />
+          )}
+
+          {activeTab === 'transactions' && (
+            <FintechTransactions 
+              onOpenAddExpense={() => setIsAddExpenseOpen(true)} 
+              currentUser={currentUser} 
+            />
+          )}
+
+          {activeTab === 'analytics' && (
+            <FintechAnalytics />
+          )}
+
+          {activeTab === 'ai_assistant' && (
+            <FintechAIAssistant 
+              currentUser={currentUser} 
+            />
+          )}
+
+          {activeTab === 'approvals_audit' && (
+            <FintechApprovalsAudit 
+              currentUser={currentUser} 
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <FintechSettings 
+              currentUser={currentUser} 
+              onUserChange={handleUserChange} 
+              onResetData={handleResetData} 
+            />
+          )}
         </main>
 
-      ) : (
+        {/* Minimal Footer */}
+        <footer className="h-10 border-t border-slate-200/80 px-6 flex items-center justify-between text-xs text-slate-500 bg-white">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-700">ExpensePilot</span>
+            <span>•</span>
+            <span>Enterprise Fintech Suite</span>
+            <span>•</span>
+            <span className="font-mono text-emerald-600">v2.6 Live</span>
+          </div>
+          <div className="font-mono text-[11px] text-slate-400">
+            Meridian DEV-C04
+          </div>
+        </footer>
 
-        /* -------------------------------------------------------------------------
-           VIEW 2: The Spatial Productivity Command Dashboard (Post-Auth State)
-           ------------------------------------------------------------------------- */
-        <div className="flex-1 flex flex-col relative z-10">
-          
-          {/* Global Spatial Navbar */}
-          <Navbar 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            onUserChange={handleUserChange}
-            onResetData={handleResetData}
-            onLockSession={handleLockSession}
-          />
+      </div>
 
-          {/* Main Content View Container */}
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-            
-            {/* Primary Spatial Command Dashboard */}
-            {activeTab === 'spatial' && (
-              <SpatialCommandDashboard 
-                currentUser={currentUser}
-                onLockSession={handleLockSession}
-                onNavigateTab={setActiveTab}
-                currentTheme={currentTheme}
-                setCurrentTheme={setCurrentTheme}
-              />
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          3. MODALS & TOASTS
+          ───────────────────────────────────────────────────────────────────────────── */}
+      <AddExpenseModal
+        isOpen={isAddExpenseOpen}
+        onClose={() => setIsAddExpenseOpen(false)}
+        onSuccess={handleAddExpenseSuccess}
+        currentUser={currentUser}
+      />
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        currentUserId={currentUserId}
+      />
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-5">
+          <div className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xl border bg-white ${
+            toast.type === 'success' ? 'border-emerald-200 text-emerald-800' : 'border-rose-200 text-rose-800'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
             )}
-
-            {/* Autonomous Copilot Agent Chat */}
-            {activeTab === 'chat' && (
-              <AgentChat currentUser={currentUser} onNavigateTab={setActiveTab} />
-            )}
-
-            {/* Executive Finance Dashboard */}
-            {activeTab === 'dashboard' && (
-              <FinanceDashboard onNavigateTab={setActiveTab} />
-            )}
-
-            {/* Claims & Invoices Hub */}
-            {activeTab === 'claims_invoices' && (
-              <ClaimsInvoicesView currentUser={currentUser} />
-            )}
-
-            {/* Approvals & Escalations Matrix */}
-            {activeTab === 'approvals_escalations' && (
-              <ApprovalsEscalationsView currentUser={currentUser} />
-            )}
-
-            {/* Hash-Chained Cryptographic Audit Trail */}
-            {activeTab === 'audit' && (
-              <AuditTrailView />
-            )}
-
-            {/* Corporate Expense & Procurement Policies */}
-            {activeTab === 'policies' && (
-              <PoliciesView />
-            )}
-
-          </main>
-
-          {/* Spatial Footer Watermark */}
-          <footer className="border-t border-white/10 py-3 text-center text-xs text-slate-400 bg-black/40 backdrop-blur-md">
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="font-semibold text-white">Expense Pilot</span>
-              <span>•</span>
-              <span className="text-cyan-400 font-mono">Spatial UI Architecture</span>
-              <span>•</span>
-              <span className="text-slate-400 font-mono">Meridian DEV-C04</span>
-              <span>•</span>
-              <button 
-                onClick={handleLockSession}
-                className="text-slate-400 hover:text-rose-400 flex items-center gap-1 font-mono transition-colors ml-2"
-              >
-                <Lock className="w-3 h-3" />
-                <span>Lock Session</span>
-              </button>
-            </div>
-          </footer>
-
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
