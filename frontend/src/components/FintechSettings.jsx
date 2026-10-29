@@ -195,3 +195,4 @@ export default function FintechSettings({ currentUser, onUserChange, onResetData
     </div>
   );
 }
+

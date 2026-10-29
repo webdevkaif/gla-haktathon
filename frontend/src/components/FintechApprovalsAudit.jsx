@@ -371,3 +371,4 @@ export default function FintechApprovalsAudit({ currentUser }) {
     </div>
   );
 }
+

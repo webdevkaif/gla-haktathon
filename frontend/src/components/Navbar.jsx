@@ -128,6 +128,14 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
       activeIcon: 'text-orange-400',
       hoverClass: 'hover:text-orange-300 hover:bg-orange-500/10'
     },
+    { 
+      id: 'anime_3d', 
+      label: '3D Shinobi & HUD', 
+      icon: Sparkles,
+      activeClass: 'bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 border-orange-500/50 text-orange-300 shadow-[0_0_15px_rgba(245,158,11,0.3)]',
+      activeIcon: 'text-amber-400',
+      hoverClass: 'hover:text-orange-300 hover:bg-orange-500/10'
+    },
   ];
 
   return (

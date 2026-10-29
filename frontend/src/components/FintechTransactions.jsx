@@ -317,3 +317,4 @@ export default function FintechTransactions({ onOpenAddExpense, currentUser }) {
     </div>
   );
 }
+

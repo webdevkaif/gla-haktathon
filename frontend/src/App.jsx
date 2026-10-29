@@ -8,6 +8,7 @@ import ClaimsInvoicesView from './components/ClaimsInvoicesView';
 import ApprovalsEscalationsView from './components/ApprovalsEscalationsView';
 import AuditTrailView from './components/AuditTrailView';
 import PoliciesView from './components/PoliciesView';
+import Anime3DTheaterView from './components/Anime3DTheaterView';
 import { getCurrentUserId, setCurrentUserId, seedEnterpriseDemoData, getAuthToken, loginUser } from './api';
 import { AlertCircle, CheckCircle2, Lock } from 'lucide-react';
 
@@ -215,6 +216,14 @@ export default function App() {
             {/* Corporate Expense & Procurement Policies */}
             {activeTab === 'policies' && (
               <PoliciesView />
+            )}
+
+            {/* Interactive 3D Anime & Shinobi Jutsu Engine */}
+            {activeTab === 'anime_3d' && (
+              <Anime3DTheaterView 
+                currentUser={currentUser} 
+                onNavigateTab={setActiveTab} 
+              />
             )}
 
           </main>

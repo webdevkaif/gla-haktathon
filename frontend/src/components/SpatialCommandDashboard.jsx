@@ -149,6 +149,7 @@ export default function SpatialCommandDashboard({
     { id: 'chat', cmd: '/view chat', label: 'Open Autonomous AI Copilot Chat', action: () => onNavigateTab('chat'), badge: '⌘1' },
     { id: 'dash', cmd: '/view dashboard', label: 'Open Executive Finance Dashboard', action: () => onNavigateTab('dashboard'), badge: '⌘2' },
     { id: 'invoices', cmd: '/view invoices', label: 'Open Claims & Vendor Invoices Hub', action: () => onNavigateTab('claims_invoices'), badge: '⌘3' },
+    { id: '3d-hud', cmd: '/view 3d', label: 'Launch 3D Anime & Shinobi Jutsu Engine', action: () => onNavigateTab('anime_3d'), badge: '3D' },
     { id: 'approvals', cmd: '/view approvals', label: 'Open Approvals & Escalations Matrix', action: () => onNavigateTab('approvals_escalations'), badge: '⌘4' },
     { id: 'audit', cmd: '/view audit', label: 'Inspect Cryptographic Hash Chain Audit Trail', action: () => onNavigateTab('audit'), badge: '⌘5' },
     { id: 'theme-citrus', cmd: '/theme citrus', label: 'Switch Theme to Citrus (Emerald & Orange Flagship)', action: () => setCurrentTheme('citrus'), badge: 'FLAGSHIP' },
@@ -243,6 +244,17 @@ export default function SpatialCommandDashboard({
                   Obsidian
                 </button>
               </div>
+
+              {/* 3D Shinobi HUD Trigger */}
+              <button
+                type="button"
+                onClick={() => onNavigateTab('anime_3d')}
+                className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 text-xs font-mono flex items-center gap-1.5 border border-amber-500/30 transition-all shadow-sm"
+                title="Launch 3D Anime & Shinobi Jutsu Engine"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <span className="hidden sm:inline">3D Shinobi Engine</span>
+              </button>
 
               {/* Omni-Command HUD Trigger Button */}
               <button

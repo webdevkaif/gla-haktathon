@@ -209,3 +209,4 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess, currentUse
     </div>
   );
 }
+
