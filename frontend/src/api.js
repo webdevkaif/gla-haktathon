@@ -276,21 +276,53 @@ export async function fetchPolicies(category = null, query = null) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Agent Chat
+// Agent Chat, File Upload & Mindee Status
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function sendAgentMessage(message, userId = null) {
+export async function sendAgentMessage(message, userId = null, language = "en", fileContext = null) {
   const res = await fetch(`${API_BASE}/agent/chat`, {
     method: "POST",
     headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       message,
-      user_id: userId || getCurrentUserId()
+      user_id: userId || getCurrentUserId(),
+      language: language || "en",
+      file_context: fileContext || null
     })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Agent query failed");
+  }
+  return res.json();
+}
+
+export async function uploadAgentSpreadsheet(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE}/agent/upload-file`, {
+    method: "POST",
+    headers: {
+      "X-User-Id": getCurrentUserId()
+    },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to parse spreadsheet");
+  }
+  return res.json();
+}
+
+export async function fetchMindeeStatus() {
+  const res = await fetch(`${API_BASE}/invoices/mindee/status`, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch Mindee OCR status");
   }
   return res.json();
 }

@@ -12,56 +12,19 @@ from backend.app.models import Invoice, Approval, serialize_docs, serialize_doc,
 from backend.app.schemas import InvoiceCreate, InvoiceOut
 from backend.app.services.rules import audit_and_flag_invoice
 from backend.app.services.audit import write_audit
+from backend.app.services.ocr import check_mindee_status, parse_invoice_document
 
 router = APIRouter(prefix="/api/invoices", tags=["Vendor Invoices"])
 
+@router.get("/mindee/status")
+async def get_mindee_status():
+    """
+    Returns live health check and diagnostic status of the Mindee OCR integration.
+    """
+    return await check_mindee_status()
+
 async def extract_mindee_ocr(file_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
-    """
-    Calls Mindee OCR API (v2 or v1) to parse document invoice details.
-    Gracefully returns None if no key configured or network is unavailable.
-    """
-    api_key = settings.MINDEE_API_KEY
-    if not api_key:
-        return None
-
-    try:
-        headers = {"Authorization": f"Token {api_key}"}
-        files = {"document": (filename, file_bytes)}
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                "https://api.mindee.net/v1/products/mindee/invoices/v4/predict",
-                headers=headers,
-                files=files
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                pred = data.get("document", {}).get("inference", {}).get("prediction", {})
-                vendor_val = pred.get("supplier_name", {}).get("value")
-                total_val = pred.get("total_amount", {}).get("value")
-                date_val = pred.get("date", {}).get("value")
-                taxes = pred.get("taxes", [])
-                tax_val = sum(t.get("value", 0) for t in taxes) if taxes else None
-
-                line_items = []
-                for li in pred.get("line_items", []):
-                    line_items.append({
-                        "name": li.get("description") or "Item",
-                        "quantity": int(li.get("quantity") or 1),
-                        "unit_price": round(float(li.get("unit_price") or li.get("total_amount") or 0.0), 2),
-                        "total": round(float(li.get("total_amount") or 0.0), 2)
-                    })
-
-                return {
-                    "vendor": vendor_val,
-                    "amount": float(total_val) if total_val else None,
-                    "date": date_val,
-                    "tax": float(tax_val) if tax_val else None,
-                    "items": line_items if line_items else None,
-                    "engine": "Mindee AI OCR"
-                }
-    except Exception as e:
-        print(f"[Invoices Notice] Mindee OCR call: {e}")
-    return None
+    return await parse_invoice_document(file_bytes, filename)
 
 
 @router.get("", response_model=List[InvoiceOut])

@@ -255,6 +255,20 @@ class AuditVerifyResponse(BaseModel):
 class AgentChatRequest(BaseModel):
     message: str
     user_id: Optional[str] = None
+    language: Optional[str] = "en"
+    file_context: Optional[Dict[str, Any]] = None
+
+class AgentFileUploadResponse(BaseModel):
+    filename: str
+    file_type: str
+    sheet_names: List[str] = []
+    row_count: int
+    column_count: int
+    headers: List[str] = []
+    sample_rows: List[Dict[str, Any]] = []
+    summary: Dict[str, Any] = {}
+    markdown_preview: str = ""
+    suggested_prompts: List[str] = []
 
 class AgentChatResponse(BaseModel):
     reply: str
