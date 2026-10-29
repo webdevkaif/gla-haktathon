@@ -509,7 +509,7 @@ async def process_agent_message(
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}"},
                     json={
-                        "model": "llama-3.3-70b-versatile",
+                        "model": settings.GROQ_MODEL or "openai/gpt-oss-120b",
                         "messages": [
                             {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')})"},
                             {"role": "user", "content": masked_message}
