@@ -1,0 +1,12 @@
+date,amount,description,category,payment_method
+2026-10-01,450,Lunch at office cafe,Food,UPI
+2026-10-03,1200,Monthly metro pass,Transportation,Card
+2026-10-05,3500,Grocery run at DMart,Groceries,UPI
+2026-10-08,899,Netflix subscription,Entertainment,Card
+2026-10-10,2200,Electricity bill,Utilities,Net Banking
+2026-10-12,650,Medicine from pharmacy,Healthcare,Cash
+2026-10-15,4800,Amazon shopping - clothes,Shopping,Card
+2026-10-18,320,Breakfast and coffee,Food,UPI
+2026-10-20,1100,Uber rides this week,Transportation,UPI
+2026-10-22,7500,Online course - Python,Education,Card
+

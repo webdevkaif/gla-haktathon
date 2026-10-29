@@ -22,8 +22,19 @@ class Settings(BaseModel):
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     
+    # Mindee Invoice OCR API Key and optional V2 Model ID
+    MINDEE_API_KEY: str = os.getenv("MINDEE_API_KEY", "")
+    MINDEE_MODEL_ID: str = os.getenv("MINDEE_MODEL_ID", "")
+    
     DEFAULT_CURRENCY: str = "₹"
     DEFAULT_USER_ID: str = "user_default"
+
+    # Phone / SMS / WhatsApp Notification Settings
+    TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
+    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    TWILIO_PHONE_NUMBER: str = os.getenv("TWILIO_PHONE_NUMBER", "")
+    WHATSAPP_API_TOKEN: str = os.getenv("WHATSAPP_API_TOKEN", "")
+    DEFAULT_NOTIFICATION_PHONE: str = os.getenv("DEFAULT_NOTIFICATION_PHONE", "+91 98765 43210")
 
     @property
     def has_valid_mongo_credentials(self) -> bool:

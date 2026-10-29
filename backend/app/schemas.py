@@ -95,6 +95,8 @@ class AgentChatResponse(BaseModel):
     tool_result: Optional[Any] = None
     structured_expenses_added: Optional[List[Dict[str, Any]]] = None
     suggested_actions: Optional[List[str]] = None
+    pdf_download_url: Optional[str] = None
+    voice_text: Optional[str] = None
 
 class WhatIfRequest(BaseModel):
     category: str
@@ -110,3 +112,111 @@ class WhatIfResponse(BaseModel):
     new_projected_total: float
     runway_impact: str
     advice: str
+
+# Invoice Schemas
+class InvoiceItem(BaseModel):
+    name: str
+    quantity: Optional[int] = 1
+    unit_price: Optional[float] = 0.0
+    total: float
+
+class InvoiceCreate(BaseModel):
+    vendor: str
+    invoice_number: Optional[str] = None
+    date: str
+    amount: float
+    category: Optional[str] = "Shopping"
+    tax: Optional[float] = 0.0
+    status: Optional[str] = "Audited"
+    items: Optional[List[InvoiceItem]] = []
+    notes: Optional[str] = None
+    file_name: Optional[str] = None
+
+class InvoiceOut(BaseModel):
+    id: str
+    user_id: str
+    vendor: str
+    invoice_number: Optional[str] = None
+    date: str
+    amount: float
+    category: str
+    tax: Optional[float] = 0.0
+    status: str
+    items: List[Dict[str, Any]] = []
+    notes: Optional[str] = None
+    file_name: Optional[str] = None
+    is_anomaly: Optional[bool] = False
+    anomaly_reason: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class InvoiceSummary(BaseModel):
+    total_invoices: int
+    total_invoiced_amount: float
+    category_totals: Dict[str, float]
+    latest_invoice: Optional[InvoiceOut] = None
+    pending_audit_count: int
+
+# Roadmap Schemas
+class RoadmapPhase(BaseModel):
+    phase: int
+    title: str
+    timeline: str
+    focus: str
+    monthly_savings_target: float
+    action_items: List[str]
+    status: str = "In Progress"
+
+class FinancialRoadmapOut(BaseModel):
+    month: str
+    generated_at: str
+    health_score: int
+    current_burn_rate: float
+    monthly_budget: float
+    projected_savings_90_days: float
+    phases: List[RoadmapPhase]
+    key_recommendations: List[str]
+    download_url: str
+
+# Phone Notification Schemas
+class PhoneSettingsUpdate(BaseModel):
+    phone_number: str
+    channel_sms: Optional[bool] = True
+    channel_whatsapp: Optional[bool] = True
+    alert_daily_recap: Optional[bool] = True
+    alert_anomaly: Optional[bool] = True
+    alert_budget_warning: Optional[bool] = True
+
+class PhoneSettingsOut(BaseModel):
+    phone_number: Optional[str] = None
+    is_connected: bool = False
+    channel_sms: bool = True
+    channel_whatsapp: bool = True
+    alert_daily_recap: bool = True
+    alert_anomaly: bool = True
+    alert_budget_warning: bool = True
+    connected_at: Optional[datetime] = None
+    total_messages_sent: int = 0
+
+class SendMessageRequest(BaseModel):
+    phone_number: Optional[str] = None
+    message_type: Optional[str] = "TEST_ALERT"  # TEST_ALERT, DAILY_SUMMARY, ANOMALY_WARNING, ROADMAP_LINK, CUSTOM
+    channel: Optional[str] = "SMS"              # SMS or WhatsApp
+    custom_text: Optional[str] = None
+
+class DispatchedMessageOut(BaseModel):
+    id: str
+    user_id: str
+    phone_number: str
+    channel: str
+    message_type: str
+    content: str
+    status: str
+    dispatch_id: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+

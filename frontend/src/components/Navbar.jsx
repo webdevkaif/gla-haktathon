@@ -9,8 +9,12 @@ import {
   TrendingUp, 
   Sliders, 
   Target, 
-  Bot 
+  Bot,
+  FileText,
+  Smartphone 
 } from 'lucide-react';
+
+import GhibliButton from './GhibliButton';
 
 export default function Navbar({ 
   activeTab, 
@@ -18,12 +22,15 @@ export default function Navbar({
   onOpenAddExpense, 
   onToggleChat, 
   onToggleAlerts, 
+  onTogglePhoneAlerts,
   unreadAlertCount, 
   onSeedDemo, 
   isSeeding 
 }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'phone', label: 'Phone Alerts', icon: Smartphone },
+    { id: 'invoices', label: 'Invoices & Roadmap', icon: FileText },
     { id: 'transactions', label: 'Transactions', icon: Receipt },
     { id: 'forecast', label: 'Forecast & Anomalies', icon: TrendingUp },
     { id: 'simulator', label: 'What-If Simulator', icon: Sliders },
@@ -94,6 +101,16 @@ export default function Navbar({
               <span>{isSeeding ? 'Seeding...' : 'Load Demo Data'}</span>
             </button>
 
+            {/* Phone Link & Alerts Button */}
+            <button
+              id="btn-toggle-phone"
+              onClick={onTogglePhoneAlerts}
+              className="relative p-2.5 rounded-xl glass-btn text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.25)] transition-all"
+              title="Pair Phone Number & Mobile Alerts (SMS/WhatsApp)"
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
+
             {/* Notification Bell with Glass Glow */}
             <button
               id="btn-toggle-alerts"
@@ -109,25 +126,31 @@ export default function Navbar({
               )}
             </button>
 
-            {/* Add Expense Button (Frosted Emerald) */}
-            <button
-              id="btn-add-expense-modal"
+            {/* Add Expense Button (Studio Ghibli Animated Button) */}
+            <GhibliButton
               onClick={onOpenAddExpense}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold glass-btn-emerald text-white"
+              variant="forest"
+              icon={PlusCircle}
+              showSprite={true}
+              spritePosition="right"
+              className="py-1.5 px-3 text-xs"
+              title="Add New Expense (Studio Ghibli Animated)"
             >
-              <PlusCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Add Expense</span>
-            </button>
+            </GhibliButton>
 
-            {/* AI Agent Chat Toggle (Frosted Cyan-Blue Neon) */}
-            <button
-              id="btn-open-chat"
+            {/* AI Agent Chat Toggle (Studio Ghibli Animated Button) */}
+            <GhibliButton
               onClick={onToggleChat}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold glass-btn-primary text-white"
+              variant="sky"
+              icon={Bot}
+              showSprite={true}
+              spritePosition="right"
+              className="py-1.5 px-3 text-xs"
+              title="Chat with Pilot AI Agent"
             >
-              <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">Ask Agent</span>
-            </button>
+            </GhibliButton>
           </div>
         </div>
 

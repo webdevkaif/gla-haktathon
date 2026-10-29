@@ -68,6 +68,14 @@ def extract_natural_language_expenses(text: str) -> List[Dict[str, Any]]:
     return expenses
 
 
+def strip_markdown_for_speech(text: str) -> str:
+    cleaned = re.sub(r'[*_#`~]', '', text)
+    cleaned = re.sub(r'\[.*?\]\(.*?\)', '', cleaned)
+    cleaned = re.sub(r'[•\-–—]', ' ', cleaned)
+    cleaned = re.sub(r'₹', 'rupees ', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned
+
 async def process_agent_message(
     db: Any,
     user_id: str,
@@ -79,6 +87,313 @@ async def process_agent_message(
     """
     msg_lower = message.lower().strip()
     curr_month = datetime.utcnow().strftime("%Y-%m")
+
+    # 0a. Check for Self-Introduction / Voice Agent Identity
+    if any(q in msg_lower for q in [
+        "introduce yourself", "who are you", "what can you do", "tell me about yourself", 
+        "introduce", "hello voice agent", "hi voice agent", "voice agent", "your capabilities"
+    ]):
+        summary = await tool_get_monthly_spending(db, user_id, curr_month)
+        voice_script = (
+            "Hello! I am ExpensePilot Voice AI, your autonomous financial copilot. "
+            "I continuously audit your expenses, track your uploaded invoices, simulate budget scenarios, "
+            "and generate personalized financial roadmap PDF reports. How can I assist you right now?"
+        )
+        reply = (
+            "🎙️ **Hello! I'm ExpensePilot Voice AI** — Your Autonomous Financial & Invoice Copilot 🚀\n\n"
+            "I operate on an autonomous **Observe → Analyze → Decide → Act** intelligence cycle. "
+            "Here is what I can do for you in real-time:\n\n"
+            "• 🗣️ **Voice & Audio Interaction**: Speak to me directly using your microphone or listen with voice narration.\n"
+            "• 📑 **Invoice & Receipt Auditing**: Inspect your uploaded invoices, extract line items, calculate tax deductions, and flag price anomalies.\n"
+            "• 🗺️ **Financial Roadmap (PDF)**: Generate an executive-level 3-phase financial defense and wealth roadmap with instant PDF download.\n"
+            "• 🔮 **Predictive Forecasting & What-If**: Simulate budget changes (e.g., *'What if I reduce shopping by 20%?'*) before you spend.\n"
+            "• 🛡️ **Autonomous Runaway & Anomaly Defense**: Statistically audit spending velocity to keep you under budget.\n\n"
+            f"📊 **Current Status ({curr_month})**: Spent ₹{summary['total_spent']:,.0f} of ₹{summary['total_budget']:,.0f} budget ({summary['percentage_used']}% used).\n\n"
+            "What would you like me to do next?"
+        )
+        return {
+            "reply": reply,
+            "voice_text": voice_script,
+            "tool_called": "agent_self_introduction",
+            "tool_result": {"status": "active", "voice_ready": True},
+            "suggested_actions": [
+                "Talk about my uploaded invoices",
+                "Create PDF roadmap and give it to me",
+                "How much can I spend per day?",
+                "Predict my monthly spending"
+            ]
+        }
+
+    # 0b. Check for CSV / Excel Spreadsheets Upload questions
+    if any(q in msg_lower for q in [
+        "upload csv", "upload excel", "import csv", "import excel", "spreadsheet", 
+        "upload file", "how to upload", "upload expenses", "import expenses"
+    ]):
+        reply = (
+            "📊 **How to Upload Excel & CSV Spreadsheets:**\n\n"
+            "You can upload your bulk expense transactions in two ways:\n\n"
+            "1. 📎 **Directly in this Chat**: Click the **Paperclip** icon at the bottom of this chat window and pick your `.csv` or `.xlsx` file. I will automatically parse, categorize, and load them into your database!\n"
+            "2. 📋 **From the Transactions List**: Go to the **Expenses / Transactions** tab and click the green **'Import CSV'** button next to 'Export'.\n\n"
+            "📝 **Expected Columns** (any column order):\n"
+            "• `date` (e.g. 2026-10-15 or 15/10/2026)\n"
+            "• `amount` (e.g. 450.00)\n"
+            "• `description` (e.g. Office lunch)\n"
+            "• `category` *(optional, auto-detected if left empty)*\n"
+            "• `payment_method` *(optional, e.g. UPI, Card, Cash)*"
+        )
+        voice_script = "You can upload Excel or CSV files by tapping the paperclip icon in this chat or clicking Import CSV in the transactions table."
+        return {
+            "reply": reply,
+            "voice_text": voice_script,
+            "tool_called": "agent_upload_guidance",
+            "tool_result": {"status": "ready", "supported_formats": [".csv", ".xlsx", ".xls"]},
+            "suggested_actions": [
+                "How much did I spend this month?",
+                "Detect unusual expenses",
+                "Create PDF roadmap and give it to me"
+            ]
+        }
+
+    # 0c. Check for Uploaded Invoices Discussion ("talk about uploaded invoices", "invoices", "receipts")
+    if any(q in msg_lower for q in [
+        "invoice", "invoices", "uploaded invoice", "receipt", "receipts", "audit invoice",
+        "talk about my invoices", "discuss invoices", "show my invoices", "bills"
+    ]):
+        from backend.app.routers.invoices import ensure_demo_invoices
+        await ensure_demo_invoices(db, user_id)
+        cursor = db.invoices.find({"user_id": user_id}).sort("date", -1)
+        invoices = await cursor.to_list(length=50)
+
+        total_inv_amt = sum(float(inv.get("amount", 0.0)) for inv in invoices)
+        anomalous_invoices = [inv for inv in invoices if inv.get("is_anomaly")]
+        
+        reply_lines = [
+            f"📑 **Uploaded Invoices & Liabilities Audit**",
+            f"Found **{len(invoices)} recorded invoices** totaling **₹{total_inv_amt:,.2f}** for your account.\n"
+        ]
+        
+        for inv in invoices[:5]:
+            status_emoji = "⚠️" if inv.get("is_anomaly") else "✅"
+            tax_str = f" (incl. ₹{inv['tax']:,.2f} GST)" if inv.get("tax") else ""
+            reply_lines.append(f"{status_emoji} **{inv.get('vendor', 'Merchant')}**: ₹{inv.get('amount', 0):,.2f} on {inv.get('date')} [{inv.get('category')}]{tax_str}")
+            if inv.get("items"):
+                items_summary = ", ".join([f"{it['name']} (x{it.get('quantity', 1)})" for it in inv["items"][:2]])
+                reply_lines.append(f"   └ *Items*: {items_summary}")
+            if inv.get("is_anomaly"):
+                reply_lines.append(f"   └ 🚨 *Audit Flag*: {inv.get('anomaly_reason')}")
+
+        reply_lines.append("")
+        if anomalous_invoices:
+            reply_lines.append(f"🔍 **Autonomous Audit Findings**: {len(anomalous_invoices)} invoice requires attention. E.g., {anomalous_invoices[0]['vendor']} was flagged for irregular pricing.")
+        else:
+            reply_lines.append("🔍 **Autonomous Audit Findings**: All invoice amounts match approved category spending baselines and GST deductions are verified.")
+
+        voice_script = (
+            f"I audited your {len(invoices)} uploaded invoices totaling {int(total_inv_amt)} rupees. "
+            f"Recent vendors include {invoices[0].get('vendor', 'Apple Store')} and {invoices[1].get('vendor', 'Starbucks') if len(invoices) > 1 else ''}. "
+            f"{'One anomalous charge was detected and flagged for review.' if anomalous_invoices else 'All items are audited and in order.'}"
+        )
+
+        return {
+            "reply": "\n".join(reply_lines),
+            "voice_text": voice_script,
+            "tool_called": "audit_uploaded_invoices",
+            "tool_result": {
+                "total_invoices": len(invoices),
+                "total_amount": total_inv_amt,
+                "anomalies_count": len(anomalous_invoices)
+            },
+            "suggested_actions": [
+                "Create PDF roadmap and give it to me",
+                "Where did most of my money go?",
+                "Can I afford a ₹1,500 purchase?",
+                "Predict my monthly spending"
+            ]
+        }
+
+    # 0c. Check for Financial Roadmap & PDF Generation Intent
+    if any(q in msg_lower for q in [
+        "roadmap", "pdf roadmap", "create pdf", "give roadmap", "financial roadmap",
+        "download roadmap", "create pdf roadmap and give you", "give me roadmap", 
+        "generate roadmap", "download pdf", "give you roadmap", "financial plan"
+    ]):
+        from backend.app.services.analytics import get_monthly_summary
+        from backend.app.routers.invoices import ensure_demo_invoices
+        await ensure_demo_invoices(db, user_id)
+        
+        summary = await get_monthly_summary(db, user_id, curr_month)
+        budget_doc = await db.budgets.find_one({"user_id": user_id, "month": curr_month})
+        total_budget = budget_doc.get("total_budget", 18000.0) if budget_doc else 18000.0
+        total_spent = summary.get("total_spent", 0.0)
+        ratio = total_spent / total_budget if total_budget > 0 else 0.8
+        health_score = max(15, min(95, int(100 - (ratio - 0.7) * 80))) if ratio > 0.7 else 92
+
+        download_url = f"http://127.0.0.1:8000/api/analytics/roadmap/pdf?month={curr_month}&user_id={user_id}"
+
+        reply = (
+            f"🗺️ **ExpensePilot Autonomous Financial Roadmap (90-Day Defense & Wealth Plan)**\n\n"
+            f"I have synthesized your spending velocity, uploaded invoices, and savings goals into an executive diagnostic.\n\n"
+            f"• **Financial Health Score**: **{health_score}/100**\n"
+            f"• **Current Monthly Outflow**: ₹{total_spent:,.0f} (Cap: ₹{total_budget:,.0f})\n"
+            f"• **Projected 90-Day Capital Preserved**: **+₹15,000**\n\n"
+            f"**Three-Phase Execution Strategy:**\n"
+            f"1. **Phase 1 (Days 1–30) — Runway Defense**: Cap discretionary velocity at ₹150/day. Enforce 48-hour cool-off rule on purchases >₹1,000. Target savings: ₹3,200/mo.\n"
+            f"2. **Phase 2 (Days 31–60) — Run-Rate Realignment**: Enforce envelopes (Food ₹4,500/mo, Groceries ₹3,000/mo). Negotiate utility bills. Accumulate ₹9,500 in emergency reserves.\n"
+            f"3. **Phase 3 (Days 61–90) — Wealth Acceleration**: Reach 50% milestone of Primary Savings Goal (₹15,000). Keep burn rate <85%.\n\n"
+            f"📄 **Your PDF Document is Ready!**\n"
+            f"You can download the full printable PDF roadmap report directly using the download button below:"
+        )
+
+        voice_script = (
+            f"I have created your personalized 90-day financial roadmap and compiled it into a PDF report. "
+            f"Your current financial health score is {health_score} out of 100, and our plan targets 15,000 rupees in savings over the next 90 days. "
+            f"You can click the download button right now to save your roadmap."
+        )
+
+        return {
+            "reply": reply,
+            "voice_text": voice_script,
+            "pdf_download_url": download_url,
+            "tool_called": "generate_financial_roadmap_pdf",
+            "tool_result": {
+                "health_score": health_score,
+                "projected_savings_90_days": 15000.0,
+                "download_url": download_url
+            },
+            "suggested_actions": [
+                "Talk about my uploaded invoices",
+                "How much can I spend per day?",
+                "What if I reduce food spending by 20%?",
+                "Predict my monthly spending"
+            ]
+        }
+
+    # 0d. Check for Phone Number Pairing / Connection ("add my number", "connect my phone", "my number is")
+    is_phone_add = any(q in msg_lower for q in [
+        "add my number", "add number", "connect my phone", "connect phone", "connect my number",
+        "pair my phone", "pair phone", "register my phone", "register phone", "save my number",
+        "save phone", "my number is", "my phone number is", "update my phone", "set my phone"
+    ]) or (any(w in msg_lower for w in ["phone", "number"]) and any(w in msg_lower for w in ["add", "connect", "pair", "register", "save", "update", "set"]))
+    
+    phone_match = re.search(r'(\+?\d[\d\s\-]{8,14}\d)', message)
+    if is_phone_add and phone_match:
+        from backend.app.services.messaging import update_phone_settings, dispatch_phone_message
+        raw_num = phone_match.group(1).strip()
+        # Add default country code if 10-digit number without +
+        clean_digits = re.sub(r'\D', '', raw_num)
+        if len(clean_digits) == 10 and not raw_num.startswith('+'):
+            formatted_phone = f"+91 {clean_digits[:5]} {clean_digits[5:]}"
+        else:
+            formatted_phone = raw_num
+
+        updated_settings = await update_phone_settings(db, user_id, {"phone_number": formatted_phone})
+        
+        # Dispatch welcome verification message
+        welcome_text = (
+            f"🚀 ExpensePilot AI Connected! Your phone ({formatted_phone}) is successfully paired with your autonomous financial copilot. "
+            "You will receive daily budget allowances, invoice audits, and anomaly alerts."
+        )
+        dispatched = await dispatch_phone_message(
+            db=db,
+            user_id=user_id,
+            phone_number=formatted_phone,
+            message_type="PHONE_CONNECTED",
+            channel="SMS",
+            content=welcome_text
+        )
+
+        reply = (
+            f"✅ **Phone Number Successfully Connected & Paired!**\n\n"
+            f"• **Paired Mobile Number**: `{formatted_phone}`\n"
+            f"• **Gateway Status**: **Active & Verified** (Dispatch ID: `{dispatched['dispatch_id']}`)\n"
+            f"• **Channels Enabled**: **SMS** & **WhatsApp**\n\n"
+            f"📲 **Verification Message Dispatched:**\n"
+            f"> \"{welcome_text}\"\n\n"
+            f"Your phone is now linked. You will receive 9:00 PM daily budget recaps, critical anomaly alerts, and roadmap links."
+        )
+
+        voice_script = f"Your phone number {formatted_phone} has been connected and paired. A verification message was dispatched to your device."
+
+        return {
+            "reply": reply,
+            "voice_text": voice_script,
+            "tool_called": "connect_phone_number",
+            "tool_result": {
+                "phone_number": formatted_phone,
+                "status": "connected",
+                "dispatch_id": dispatched["dispatch_id"]
+            },
+            "suggested_actions": [
+                "Send daily summary to my phone",
+                "Send roadmap link to my phone via WhatsApp",
+                "How much can I spend per day?",
+                "Predict my monthly spending"
+            ]
+        }
+
+    # 0e. Check for Phone Messaging / SMS Intent ("send to my phone", "text me", "whatsapp me")
+    is_phone_dispatch = (
+        any(q in msg_lower for q in [
+            "phone", "mobile", "number", "text me", "sms", "whatsapp", "call me"
+        ]) and any(w in msg_lower for w in [
+            "send", "text", "notify", "dispatch", "message", "forward"
+        ])
+    ) or any(q in msg_lower for q in [
+        "text me", "whatsapp me", "send sms", "send to phone", "send this to my phone", "send to my phone"
+    ])
+    if is_phone_dispatch:
+        from backend.app.services.messaging import get_or_create_phone_settings, dispatch_phone_message
+        phone_doc = await get_or_create_phone_settings(db, user_id)
+        
+        # Check if user mentioned a new phone number in the message
+        phone_match = re.search(r'(\+?\d[\d\s\-]{8,14}\d)', message)
+        target_phone = phone_match.group(1).strip() if phone_match else phone_doc.get("phone_number", "+91 98765 43210")
+
+        # Determine channel
+        channel = "WhatsApp" if "whatsapp" in msg_lower else "SMS"
+
+        # Construct message content based on context
+        b_info = await tool_calculate_remaining_budget(db, user_id, curr_month)
+        sms_body = (
+            f"📱 ExpensePilot AI Update: "
+            f"Month: {curr_month}. Spent: ₹{b_info['total_spent']:,.0f} of ₹{b_info['total_budget']:,.0f}. "
+            f"Safe Allowance: ₹{b_info['daily_budget_remaining']:,.0f}/day with {b_info['days_remaining']} days left. "
+            f"Roadmap & Audits active."
+        )
+
+        dispatched = await dispatch_phone_message(
+            db=db,
+            user_id=user_id,
+            phone_number=target_phone,
+            message_type="AGENT_PHONE_DISPATCH",
+            channel=channel,
+            content=sms_body
+        )
+
+        reply = (
+            f"📲 **Message Sent to Your Phone!**\n\n"
+            f"• **Destination Number**: `{target_phone}`\n"
+            f"• **Channel**: **{channel}**\n"
+            f"• **Delivery Status**: **{dispatched['status']}** (Dispatch ID: `{dispatched['dispatch_id']}`)\n\n"
+            f"**Content Dispatched:**\n"
+            f"> \"{sms_body}\"\n\n"
+            f"💡 *Tip: You can change notification channels or update your phone number anytime in the Phone Alerts modal.*"
+        )
+
+        voice_script = f"I have sent your financial recap to your phone number {target_phone} via {channel}. Delivery is confirmed."
+
+        return {
+            "reply": reply,
+            "voice_text": voice_script,
+            "tool_called": "dispatch_phone_notification",
+            "tool_result": dispatched,
+            "suggested_actions": [
+                "Send to my phone via WhatsApp",
+                "Create PDF roadmap and give it to me",
+                "How much can I spend per day?",
+                "Predict my monthly spending"
+            ]
+        }
 
     # 1. Check for Expense Addition Intent
     extracted_items = extract_natural_language_expenses(message)

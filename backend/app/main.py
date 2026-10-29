@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config import settings
 from backend.app.database import init_db, close_db, get_database
-from backend.app.routers import expenses, budgets, analytics, goals, agent
+from backend.app.routers import expenses, budgets, analytics, goals, agent, invoices, notifications
 from backend.app.services.seed_data import seed_demo_data
 
 @asynccontextmanager
@@ -48,6 +48,8 @@ app.include_router(budgets.router)
 app.include_router(analytics.router)
 app.include_router(goals.router)
 app.include_router(agent.router)
+app.include_router(invoices.router)
+app.include_router(notifications.router)
 
 @app.get("/")
 async def root():

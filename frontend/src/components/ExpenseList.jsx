@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { 
   Search, 
-  Filter, 
   Trash2, 
   AlertTriangle, 
-  Download, 
+  Download,
+  Upload,
   Plus, 
   CheckCircle,
-  Receipt
+  FileSpreadsheet
 } from 'lucide-react';
-import { deleteExpense, confirmUnusualExpense } from '../api';
+import { deleteExpense, confirmUnusualExpense, uploadExpenseCSV } from '../api';
 import { formatCurrency, getCategoryColor } from '../utils/formatters';
 
 const CATEGORIES = [
@@ -27,6 +27,8 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState('All');
   const [showUnusualOnly, setShowUnusualOnly] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   const filtered = (expenses || []).filter((e) => {
     const matchesCat = selectedCat === 'All' || e.category.toLowerCase() === selectedCat.toLowerCase();
@@ -53,6 +55,30 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
       if (onExpenseMutated) onExpenseMutated();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleImportCSV = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const result = await uploadExpenseCSV(formData);
+      setImportResult({
+        type: 'success',
+        message: result.message,
+        skipped: result.skipped_details || [],
+        imported: result.imported,
+      });
+      if (onExpenseMutated) onExpenseMutated();
+    } catch (err) {
+      setImportResult({ type: 'error', message: err.message || 'Import failed. Please check your file format.' });
+    } finally {
+      setIsImporting(false);
+      e.target.value = '';
     }
   };
 
@@ -99,7 +125,7 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
             />
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             {/* Unusual toggle */}
             <button
               onClick={() => setShowUnusualOnly(!showUnusualOnly)}
@@ -123,6 +149,30 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
               <span className="hidden sm:inline">Export</span>
             </button>
 
+            {/* Import CSV / Excel Button */}
+            <label
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer
+                ${isImporting
+                  ? 'glass-btn text-emerald-400 opacity-70 cursor-not-allowed'
+                  : 'glass-btn text-emerald-400 hover:text-white hover:bg-emerald-500/20'
+                }`}
+              title="Import expenses from CSV or Excel file"
+            >
+              {isImporting ? (
+                <Upload className="w-3.5 h-3.5 animate-bounce" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import CSV'}</span>
+              <input
+                type="file"
+                onChange={handleImportCSV}
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                disabled={isImporting}
+              />
+            </label>
+
             {/* Add Expense Button */}
             <button
               onClick={onOpenAddModal}
@@ -133,6 +183,48 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
             </button>
           </div>
 
+        </div>
+
+        {/* Import Result Banner */}
+        {importResult && (
+          <div
+            className={`p-4 rounded-2xl text-xs font-semibold flex flex-col gap-1.5 animate-fade-in border ${
+              importResult.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span>{importResult.message}</span>
+              <button
+                onClick={() => setImportResult(null)}
+                className="text-slate-400 hover:text-white ml-4 shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            {importResult.type === 'success' && importResult.skipped?.length > 0 && (
+              <div className="mt-1 space-y-0.5 text-amber-300/80">
+                <span className="font-bold">Skipped rows:</span>
+                {importResult.skipped.map((s, i) => (
+                  <div key={i}>Row {s.row}: {s.reason}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CSV Format Hint */}
+        <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+          <FileSpreadsheet className="w-3 h-3 shrink-0" />
+          <span>
+            Import accepts <strong className="text-slate-400">CSV</strong> or <strong className="text-slate-400">Excel (.xlsx)</strong> files.
+            Required columns: <code className="bg-white/5 px-1 rounded">date</code>,{' '}
+            <code className="bg-white/5 px-1 rounded">amount</code>,{' '}
+            <code className="bg-white/5 px-1 rounded">description</code>.
+            Optional: <code className="bg-white/5 px-1 rounded">category</code>,{' '}
+            <code className="bg-white/5 px-1 rounded">payment_method</code>.
+          </span>
         </div>
 
         {/* Category Filter Pills */}

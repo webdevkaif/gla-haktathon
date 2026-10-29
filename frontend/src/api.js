@@ -139,3 +139,116 @@ export async function sendAgentMessage(message) {
   if (!res.ok) throw new Error("Agent message failed");
   return res.json();
 }
+
+export async function fetchInvoices(params = {}) {
+  const query = new URLSearchParams();
+  if (params.category && params.category !== "All") query.append("category", params.category);
+  if (params.status) query.append("status", params.status);
+  const res = await fetch(`${API_BASE}/invoices?${query.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch invoices");
+  return res.json();
+}
+
+export async function fetchInvoiceSummary() {
+  const res = await fetch(`${API_BASE}/invoices/summary`);
+  if (!res.ok) throw new Error("Failed to fetch invoice summary");
+  return res.json();
+}
+
+export async function uploadInvoiceFile(formData) {
+  const res = await fetch(`${API_BASE}/invoices/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Failed to upload invoice");
+  return res.json();
+}
+
+export async function createInvoice(data) {
+  const res = await fetch(`${API_BASE}/invoices`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to create invoice");
+  return res.json();
+}
+
+export async function deleteInvoice(id) {
+  const res = await fetch(`${API_BASE}/invoices/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete invoice");
+  return res.json();
+}
+
+export async function fetchFinancialRoadmap(month = "2026-10") {
+  const res = await fetch(`${API_BASE}/analytics/roadmap?month=${month}`);
+  if (!res.ok) throw new Error("Failed to fetch roadmap");
+  return res.json();
+}
+
+export function getRoadmapPdfUrl(month = "2026-10") {
+  return `${API_BASE}/analytics/roadmap/pdf?month=${month}`;
+}
+
+export async function fetchPhoneSettings() {
+  const res = await fetch(`${API_BASE}/notifications/settings`);
+  if (!res.ok) throw new Error("Failed to fetch phone settings");
+  return res.json();
+}
+
+export async function savePhoneSettings(data) {
+  const res = await fetch(`${API_BASE}/notifications/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to save phone settings");
+  return res.json();
+}
+
+export async function fetchNotificationHistory() {
+  const res = await fetch(`${API_BASE}/notifications/history`);
+  if (!res.ok) throw new Error("Failed to fetch notification history");
+  return res.json();
+}
+
+export async function sendTestPhoneMessage(payload = {}) {
+  const res = await fetch(`${API_BASE}/notifications/send-test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to send test message");
+  return res.json();
+}
+
+export async function dispatchPhoneSummary(channel = "SMS") {
+  const res = await fetch(`${API_BASE}/notifications/dispatch-summary?channel=${channel}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to dispatch summary");
+  return res.json();
+}
+
+export async function dispatchPhoneRoadmap(channel = "SMS") {
+  const res = await fetch(`${API_BASE}/notifications/dispatch-roadmap?channel=${channel}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to dispatch roadmap");
+  return res.json();
+}
+
+export async function uploadExpenseCSV(formData) {
+  const res = await fetch(`${API_BASE}/expenses/upload-csv`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload CSV/Excel file");
+  }
+  return res.json();
+}
+

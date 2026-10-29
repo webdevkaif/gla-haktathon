@@ -9,6 +9,9 @@ import AddExpenseModal from './components/AddExpenseModal';
 import AgentChat from './components/AgentChat';
 import AnomalyAlerts from './components/AnomalyAlerts';
 import BudgetManager from './components/BudgetManager';
+import InvoicesRoadmapView from './components/InvoicesRoadmapView';
+import PhoneAlertsModal from './components/PhoneAlertsModal';
+import PhoneAlertsView from './components/PhoneAlertsView';
 import { 
   fetchMonthlySummary, 
   fetchCurrentBudget, 
@@ -37,6 +40,7 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -124,6 +128,7 @@ export default function App() {
         onOpenAddExpense={() => setIsAddExpenseOpen(true)}
         onToggleChat={() => setIsChatOpen(prev => !prev)}
         onToggleAlerts={() => setIsAlertsOpen(prev => !prev)}
+        onTogglePhoneAlerts={() => setIsPhoneModalOpen(prev => !prev)}
         unreadAlertCount={unreadAlerts.length}
         onSeedDemo={handleSeedDemo}
         isSeeding={isSeeding}
@@ -147,6 +152,19 @@ export default function App() {
                 forecast={forecast}
                 onNavigateTab={(tab) => setActiveTab(tab)}
                 onOpenAddExpense={() => setIsAddExpenseOpen(true)}
+                onToggleChat={() => setIsChatOpen(true)}
+                onTogglePhoneAlerts={() => setIsPhoneModalOpen(true)}
+              />
+            )}
+
+            {activeTab === 'phone' && (
+              <PhoneAlertsView
+                onToggleChat={() => setIsChatOpen(true)}
+              />
+            )}
+
+            {activeTab === 'invoices' && (
+              <InvoicesRoadmapView
                 onToggleChat={() => setIsChatOpen(true)}
               />
             )}
@@ -224,6 +242,11 @@ export default function App() {
         isOpen={isBudgetModalOpen}
         onClose={() => setIsBudgetModalOpen(false)}
         onBudgetUpdated={loadAllData}
+      />
+
+      <PhoneAlertsModal
+        isOpen={isPhoneModalOpen}
+        onClose={() => setIsPhoneModalOpen(false)}
       />
 
       {/* Footer */}

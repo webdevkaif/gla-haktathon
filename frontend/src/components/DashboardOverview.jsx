@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -26,6 +26,10 @@ import {
   Bar 
 } from 'recharts';
 import { formatCurrency, formatPercent, getCategoryColor } from '../utils/formatters';
+import AnimeAgentCinemaHUD from './AnimeAgentCinemaHUD';
+import NarutoShinobiJutsuHUD from './NarutoShinobiJutsuHUD';
+import GhibliMeadowHUD from './GhibliMeadowHUD';
+import GhibliButton from './GhibliButton';
 
 export default function DashboardOverview({ 
   summary, 
@@ -33,8 +37,11 @@ export default function DashboardOverview({
   forecast, 
   onNavigateTab, 
   onOpenAddExpense, 
-  onToggleChat 
+  onToggleChat,
+  onTogglePhoneAlerts 
 }) {
+  const [hudTheme, setHudTheme] = useState('GHIBLI'); // 'GHIBLI', 'NARUTO', or 'CYBER'
+
   if (!summary || !budget) {
     return (
       <div className="flex items-center justify-center p-16">
@@ -64,15 +71,99 @@ export default function DashboardOverview({
   return (
     <div className="space-y-6 animate-fade-in">
       
+      {/* HUD Theme Switcher Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase">
+            Visual Anime & 3D Engine
+          </span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+            Interactive
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-lg">
+          {/* Studio Ghibli Theme Button */}
+          <button
+            onClick={() => setHudTheme('GHIBLI')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              hudTheme === 'GHIBLI'
+                ? 'bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <span>🌿</span>
+            <span>Studio Ghibli Meadow</span>
+          </button>
+
+          {/* 3D Naruto Shinobi Button */}
+          <button
+            onClick={() => setHudTheme('NARUTO')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              hudTheme === 'NARUTO'
+                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <span>🌀</span>
+            <span>3D Naruto Shinobi</span>
+          </button>
+
+          {/* Cyber-Anime Pilot Button */}
+          <button
+            onClick={() => setHudTheme('CYBER')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              hudTheme === 'CYBER'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <span>🤖</span>
+            <span>Cyber-Anime Pilot</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Conditional Active AI Pilot HUD */}
+      {hudTheme === 'GHIBLI' ? (
+        <GhibliMeadowHUD
+          summary={summary}
+          budget={budget}
+          forecast={forecast}
+          onToggleChat={onToggleChat}
+          onTogglePhoneAlerts={onTogglePhoneAlerts}
+          onNavigateTab={onNavigateTab}
+        />
+      ) : hudTheme === 'NARUTO' ? (
+        <NarutoShinobiJutsuHUD
+          summary={summary}
+          budget={budget}
+          forecast={forecast}
+          onToggleChat={onToggleChat}
+          onTogglePhoneAlerts={onTogglePhoneAlerts}
+          onNavigateTab={onNavigateTab}
+        />
+      ) : (
+        <AnimeAgentCinemaHUD
+          summary={summary}
+          budget={budget}
+          forecast={forecast}
+          onToggleChat={onToggleChat}
+          onTogglePhoneAlerts={onTogglePhoneAlerts}
+          onNavigateTab={onNavigateTab}
+        />
+      )}
+
       {/* Autonomous Agent Status Banner - Ultra Frosted Glass */}
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 glass-panel border border-cyan-500/30 shadow-[0_20px_50px_rgba(6,182,212,0.15)]">
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 glass-panel border border-emerald-500/30 shadow-[0_20px_50px_rgba(16,185,129,0.15)]">
         {/* Subtle internal neon blur */}
-        <div className="absolute -top-20 -right-20 w-60 h-60 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -top-20 -right-20 w-60 h-60 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="p-3 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.3)] backdrop-blur-md">
+            <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.3)] backdrop-blur-md">
               <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div>
@@ -94,20 +185,26 @@ export default function DashboardOverview({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
+            <GhibliButton
               onClick={() => onNavigateTab('simulator')}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold glass-btn text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/60 transition-all"
+              variant="parchment"
+              icon={Sliders}
+              showSprite={false}
+              className="text-xs py-2 px-3"
             >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Simulate What-If</span>
-            </button>
-            <button
+              Simulate What-If
+            </GhibliButton>
+            
+            <GhibliButton
               onClick={onToggleChat}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold glass-btn-primary text-white"
+              variant="forest"
+              icon={Bot}
+              showSprite={true}
+              spritePosition="right"
+              className="text-xs py-2 px-3.5"
             >
-              <Bot className="w-4 h-4" />
-              <span>Ask Agent</span>
-            </button>
+              Ask Agent
+            </GhibliButton>
           </div>
         </div>
       </div>
