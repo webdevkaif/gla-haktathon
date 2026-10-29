@@ -1,91 +1,100 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  Send, 
   Bot, 
-  User, 
+  Send, 
   Sparkles, 
-  ShieldAlert, 
-  FileText, 
+  X, 
   CheckCircle2, 
-  Volume2, 
-  ChevronDown, 
-  ChevronUp,
-  Layers,
-  HelpCircle,
-  ExternalLink,
-  Globe,
-  UploadCloud,
-  FileSpreadsheet,
+  AlertCircle, 
+  Wand2,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Download,
+  FileText,
   Paperclip,
-  X,
-  AlertTriangle,
-  Activity
+  Upload,
+  Play,
+  Square,
+  ShieldCheck
 } from 'lucide-react';
-import { 
-  sendAgentMessage, 
-  getCurrentUserId, 
-  uploadAgentSpreadsheet,
-  fetchMindeeStatus 
-} from '../api';
+import { sendAgentMessage, uploadInvoiceFile, uploadExpenseCSV } from '../api';
+import { formatCurrency } from '../utils/formatters';
 
-const QUICK_PROMPTS = [
-  "What is the hotel rate limit for Grade L2?",
-  "What is the meal allowance for Grade L2?",
-  "Mera claim CLM-1042 approve hua kya?",
-  "Status of invoice INV-2004",
-  "What are the vendor Net-30 payment terms?",
-  "Give me the executive finance summary",
-  "Send a reminder for pending approvals"
+const STARTER_PROMPTS = [
+  "Introduce yourself",
+  "Talk about my uploaded invoices",
+  "Create PDF roadmap and give it to me",
+  "Send this to my phone",
+  "How much did I spend this month?",
+  "Where did most of my money go?",
+  "How much can I spend per day?",
+  "Can I afford a ₹1,200 purchase?",
+  "What if I reduce shopping expenses by 20%?",
+  "Detect unusual expenses"
 ];
 
-const LANGUAGES = [
-  { code: 'en', label: 'English', flag: '🇬🇧', voiceLocale: 'en-US' },
-  { code: 'hi', label: 'हिंदी (Hindi)', flag: '🇮🇳', voiceLocale: 'hi-IN' },
-  { code: 'hinglish', label: 'Hinglish', flag: '💬', voiceLocale: 'en-IN' },
-  { code: 'es', label: 'Español', flag: '🇪🇸', voiceLocale: 'es-ES' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷', voiceLocale: 'fr-FR' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪', voiceLocale: 'de-DE' }
-];
-
-export default function AgentChat({ currentUser, onNavigateTab }) {
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
+export default function AgentChat({ isOpen, onClose, onDataMutated }) {
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       sender: 'agent',
-      text: `Hello! I am **Expense Pilot**, your Meridian Finance & Procurement Query Agent.\n\nI can answer expense policy questions **with exact citations**, check status of reimbursement claims and vendor invoices, initiate approvals, send reminders, and escalate discrepancies to the finance team.\n\n📁 **New**: You can also attach **CSV or Excel files** (.csv, .xlsx) below to extract data and audit expenses with AI!`,
-      citations: [
-        {
-          doc_name: "Meridian Expense & Procurement Policy 2026",
-          section_id: "SEC-101",
-          title: "Purpose & General Principles",
-          relevant_snippet: "All claims and procurement actions must follow authorized audit controls and grade per-diem limits."
-        }
-      ],
-      tool_called: "policy_qa",
-      escalated: false,
-      suggested_actions: [
-        "What is hotel room limit for Grade L2?",
-        "Check status of CLM-1042",
-        "Executive finance summary"
+      text: "🎙️ **Hello! I'm ExpensePilot Voice AI**, your autonomous financial and invoice intelligence copilot. 🚀\n\nI can speak with you, audit your uploaded invoices, simulate budget scenarios, and generate an executive-ready 3-Phase Financial Roadmap PDF.\n\nClick a quick voice prompt below or tap the **Microphone** to speak naturally!",
+      voiceText: "Hello! I am ExpensePilot Voice AI, your autonomous financial copilot. Ask me to introduce myself, discuss your uploaded invoices, or create your financial roadmap PDF!",
+      suggestedActions: [
+        "Introduce yourself",
+        "Talk about my uploaded invoices",
+        "Create PDF roadmap and give it to me",
+        "Predict my monthly spending"
       ]
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [attachedFile, setAttachedFile] = useState(null);
-  const [mindeeInfo, setMindeeInfo] = useState(null);
-  const [showMindeeModal, setShowMindeeModal] = useState(false);
-  const [expandedCitation, setExpandedCitation] = useState(null);
+
   const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Check Mindee status on mount
+  // Initialize Speech Recognition & Synthesis check
   useEffect(() => {
-    fetchMindeeStatus()
-      .then((data) => setMindeeInfo(data))
-      .catch((err) => console.log("Mindee status check error:", err));
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setSpeechSupported(true);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        setInput(transcript);
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition notice:', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
   }, []);
 
   const scrollToBottom = () => {
@@ -93,104 +102,123 @@ export default function AgentChat({ currentUser, onNavigateTab }) {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading, isUploading]);
+    if (isOpen) {
+      scrollToBottom();
+    }
+  }, [messages, isOpen]);
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
+  // Voice output synthesis helper
+  const speakVoice = useCallback((text) => {
+    if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
+    
     try {
-      const extracted = await uploadAgentSpreadsheet(file);
-      setAttachedFile(extracted);
+      window.speechSynthesis.cancel();
+      // Clean up markdown syntax for clear speech
+      let clean = text
+        .replace(/[*_#`~]/g, '')
+        .replace(/\[.*?\]\(.*?\)/g, '')
+        .replace(/[•\-–—]/g, ' ')
+        .replace(/₹/g, ' rupees ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-      // Post an immediate analysis message from the agent
-      const summaryMsg = {
-        id: `file-agent-${Date.now()}`,
-        sender: 'agent',
-        text: `📁 **Uploaded & Processed: \`${extracted.filename}\` (${extracted.file_type})**\n\n• **Rows Processed**: ${extracted.row_count} rows across ${extracted.column_count} columns\n• **Total Expense Sum**: ₹${(extracted.summary?.total_sum || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} INR\n• **Flagged High Expenses (> ₹10k)**: ${extracted.summary?.flagged_high_expenses_count || 0} line items (requires SEC-107 Finance Controller review)\n• **Potential Duplicates**: ${extracted.summary?.duplicate_rows_detected || 0} duplicate row(s) flagged under SEC-110.\n\n${extracted.markdown_preview ? `**Data Preview (First 5 Rows):**\n\n${extracted.markdown_preview}` : ''}`,
-        citations: [
-          {
-            doc_name: "Meridian Expense & Procurement Policy 2026",
-            section_id: "SEC-107",
-            title: "Approval Matrix & Thresholds",
-            relevant_snippet: "Claims exceeding ₹10,000 require secondary approval from the Finance Controller before disbursement."
-          },
-          {
-            doc_name: "Meridian Expense & Procurement Policy 2026",
-            section_id: "SEC-110",
-            title: "Duplicate Claim & Invoice Detection",
-            relevant_snippet: "Duplicate submissions for the same expense or invoice are strictly prohibited and immediately flagged for investigation."
-          }
-        ],
-        tool_called: "spreadsheet_data_extractor",
-        tool_result: extracted.summary,
-        escalated: (extracted.summary?.flagged_high_expenses_count || 0) > 0 || (extracted.summary?.duplicate_rows_detected || 0) > 0,
-        suggested_actions: extracted.suggested_prompts || [
-          `Summarize expenses in ${extracted.filename}`,
-          `Check policy violations in this file`
-        ]
-      };
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
 
-      setMessages((prev) => [...prev, summaryMsg]);
-    } catch (err) {
-      alert(`Upload error: ${err.message || 'Failed to process spreadsheet'}`);
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Select high-quality natural voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const naturalVoice = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel')) && v.lang.startsWith('en'));
+      if (naturalVoice) utterance.voice = naturalVoice;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('Speech synthesis error:', e);
+      setIsSpeaking(false);
+    }
+  }, [isVoiceEnabled]);
+
+  const stopSpeaking = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
     }
   };
 
-  const handleSend = async (messageText = null) => {
-    const textToSend = (messageText || input).trim();
-    if (!textToSend || isLoading) return;
+  const toggleListening = () => {
+    if (!speechSupported) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      stopSpeaking();
+      setInput('');
+      try {
+        recognitionRef.current?.start();
+      } catch (err) {
+        console.warn('Mic start notice:', err);
+      }
+    }
+  };
 
-    const userMsgId = `user-${Date.now()}`;
-    const userMsg = {
-      id: userMsgId,
-      sender: 'user',
-      text: textToSend,
-      attachedFile: attachedFile ? attachedFile.filename : null
-    };
+  const handleSend = async (textToSend) => {
+    const text = textToSend || input;
+    if (!text.trim() || isLoading) return;
 
-    setMessages((prev) => [...prev, userMsg]);
-    if (!messageText) setInput('');
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    }
+    stopSpeaking();
+
+    const userMsgId = Date.now().toString();
+    const newMessages = [
+      ...messages,
+      { id: userMsgId, sender: 'user', text: text.trim() }
+    ];
+    setMessages(newMessages);
+    setInput('');
     setIsLoading(true);
 
     try {
-      const activeUserId = getCurrentUserId();
-      const res = await sendAgentMessage(
-        textToSend, 
-        activeUserId, 
-        selectedLanguage, 
-        attachedFile
-      );
-
+      const response = await sendAgentMessage(text.trim());
       const agentMsg = {
-        id: `agent-${Date.now()}`,
+        id: (Date.now() + 1).toString(),
         sender: 'agent',
-        text: res.reply,
-        citations: res.citations || [],
-        tool_called: res.tool_called,
-        tool_result: res.tool_result,
-        escalated: res.escalated || false,
-        suggested_actions: res.suggested_actions || [],
-        voice_text: res.voice_text
+        text: response.reply,
+        voiceText: response.voice_text,
+        toolCalled: response.tool_called,
+        toolResult: response.tool_result,
+        addedExpenses: response.structured_expenses_added,
+        suggestedActions: response.suggested_actions || [],
+        pdfDownloadUrl: response.pdf_download_url
       };
 
       setMessages((prev) => [...prev, agentMsg]);
+
+      // Speak agent reply out loud
+      if (response.voice_text || response.reply) {
+        speakVoice(response.voice_text || response.reply);
+      }
+
+      if (response.tool_called === 'add_expense' || response.tool_called === 'create_saving_plan') {
+        if (onDataMutated) onDataMutated();
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
-          id: `err-${Date.now()}`,
+          id: (Date.now() + 1).toString(),
           sender: 'agent',
-          text: `⚠️ **Error communicating with Expense Pilot**: ${err.message || 'Please check backend connectivity.'}`,
-          citations: [],
-          tool_called: null,
-          escalated: false,
-          suggested_actions: ["Check backend connection", "What is hotel limit for L2?"]
+          text: "⚠️ Sorry, I encountered an issue executing that request. Please try again.",
+          isError: true
         }
       ]);
     } finally {
@@ -198,356 +226,407 @@ export default function AgentChat({ currentUser, onNavigateTab }) {
     }
   };
 
-  const speakText = (text) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const clean = text.replace(/[*_#`~]/g, '');
-      const utterance = new SpeechSynthesisUtterance(clean);
-      const currentLangObj = LANGUAGES.find(l => l.code === selectedLanguage);
-      utterance.lang = currentLangObj?.voiceLocale || 'en-US';
-      utterance.rate = 1.0;
-      window.speechSynthesis.speak(utterance);
+  // Handle file upload (Invoice OCR or Excel/CSV Spreadsheets) from chat
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const isSpreadsheet = /\.(csv|xlsx|xls)$/i.test(file.name);
+
+    if (isSpreadsheet) {
+      try {
+        const result = await uploadExpenseCSV(formData);
+        const importedCount = result.imported || 0;
+        const skippedCount = result.skipped || 0;
+
+        // User message
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            sender: 'user',
+            text: `📊 Uploaded spreadsheet: **${file.name}**`
+          },
+          {
+            id: (Date.now() + 1).toString(),
+            sender: 'agent',
+            text: `✅ **Successfully processed "${file.name}"!**\n\n• **${importedCount} transaction(s)** imported & categorized\n${skippedCount > 0 ? `• **${skippedCount} row(s)** skipped (invalid/missing data)\n` : ''}\nYour database, budget velocity, and monthly analytics are now fully refreshed. Would you like me to check for unusual expenses or calculate your remaining daily budget?`,
+            voiceText: `Successfully imported ${importedCount} expenses from ${file.name}. Your financial records are now updated!`,
+            suggestedActions: [
+              "How much did I spend this month?",
+              "Detect unusual expenses",
+              "Where did most of my money go?",
+              "How much can I spend per day?"
+            ]
+          }
+        ]);
+
+        if (isVoiceEnabled) {
+          speakVoice(`Successfully imported ${importedCount} expenses from ${file.name}.`);
+        }
+
+        if (onDataMutated) onDataMutated();
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            sender: 'agent',
+            text: `❌ **Failed to import spreadsheet "${file.name}":**\n${err.message || 'Please check that the file has date, amount, and description columns.'}`,
+            isError: true
+          }
+        ]);
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    try {
+      const uploaded = await uploadInvoiceFile(formData);
+      
+      // Add user notification
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          sender: 'user',
+          text: `📎 Uploaded invoice: **${file.name}**`
+        }
+      ]);
+
+      // Trigger automatic invoice audit discussion by agent
+      handleSend("Talk about my uploaded invoices");
+      if (onDataMutated) onDataMutated();
+    } catch (err) {
+      alert("Failed to upload invoice file. Please try again.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="flex flex-col h-[calc(100vh-8.5rem)] max-w-5xl mx-auto">
-      
-      {/* Header Info & Controls Banner */}
-      <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Bot className="w-4 h-4 text-teal-400" />
-          <span>
-            Connected to <strong>Meridian Knowledgebase 2026</strong> — Active User: <strong className="text-teal-300">{currentUser?.name || 'John Doe'}</strong> ({currentUser?.role || 'Employee'})
-          </span>
-        </div>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-md animate-fade-in">
+      <div 
+        className="w-full max-w-xl h-full glass-panel-deep border-l border-white/10 bg-[#070d1d]/90 backdrop-blur-3xl flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.85)] transition-transform"
+        onClick={(e) => e.stopPropagation()}
+      >
+        
+        {/* Voice Agent Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-white/[0.02]">
+          <div className="flex items-center gap-3">
+            {/* Animated Pulsing Voice Avatar Orb */}
+            <div className={`relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-500 border border-white/30 backdrop-blur-xl ${
+              isSpeaking
+                ? 'bg-gradient-to-tr from-violet-600 to-pink-500 shadow-[0_0_25px_rgba(217,70,239,0.7)] scale-105'
+                : isListening
+                ? 'bg-gradient-to-tr from-emerald-500 to-teal-400 shadow-[0_0_25px_rgba(16,185,129,0.7)] scale-105'
+                : 'bg-gradient-to-tr from-cyan-500/90 to-blue-600/90 shadow-[0_0_20px_rgba(6,182,212,0.4)]'
+            }`}>
+              <Bot className={`w-5 h-5 text-white ${isSpeaking || isListening ? 'animate-bounce' : 'animate-pulse'}`} />
+              
+              {/* Dynamic Sound Wave Ring */}
+              {(isSpeaking || isListening) && (
+                <span className="absolute -inset-1 rounded-2xl border-2 border-cyan-400/60 animate-ping pointer-events-none"></span>
+              )}
+            </div>
 
-        <div className="flex items-center gap-2">
-          {/* Mindee OCR Diagnostics Pill */}
-          <button
-            onClick={() => setShowMindeeModal(true)}
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border transition-all ${
-              mindeeInfo?.status === 'ACTIVE_CONNECTED'
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
-            }`}
-            title="Click to view Mindee OCR API status details"
-          >
-            <Activity className="w-3 h-3" />
-            <span>Mindee OCR: {mindeeInfo?.status === 'ACTIVE_CONNECTED' ? 'Active (V2)' : 'Ready'}</span>
-          </button>
-
-          {/* Language Selector Dropdown */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5">
-            <Globe className="w-3.5 h-3.5 text-teal-400" />
-            <select
-              value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="bg-transparent text-[11px] text-slate-200 focus:outline-none cursor-pointer pr-1"
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code} className="bg-slate-800 text-slate-200">
-                  {l.flag} {l.label}
-                </option>
-              ))}
-            </select>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-white tracking-tight flex items-center gap-1.5">
+                  ExpensePilot Voice AI
+                </h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm transition-all ${
+                  isSpeaking
+                    ? 'bg-pink-500/20 text-pink-300 border-pink-400/40 animate-pulse'
+                    : isListening
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 animate-pulse'
+                    : 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40'
+                }`}>
+                  {isSpeaking ? 'Speaking Voice' : isListening ? 'Listening...' : 'Voice Ready'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">Autonomous Voice Copilot • Invoices & Roadmap</p>
+            </div>
           </div>
 
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-            Whitelisted Tools Active
-          </span>
+          <div className="flex items-center gap-2">
+            {/* Audio Speech Mute / Unmute Toggle */}
+            <button
+              onClick={() => {
+                if (isSpeaking) stopSpeaking();
+                setIsVoiceEnabled(prev => !prev);
+              }}
+              title={isVoiceEnabled ? "Voice narration active (Click to mute)" : "Voice narration muted (Click to enable)"}
+              className={`p-2.5 rounded-xl border transition-all ${
+                isVoiceEnabled
+                  ? 'glass-btn text-cyan-300 border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                  : 'glass-btn text-slate-500 border-white/10'
+              }`}
+            >
+              {isVoiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                stopSpeaking();
+                if (isListening) recognitionRef.current?.stop();
+                onClose();
+              }}
+              className="p-2.5 rounded-xl text-slate-400 hover:text-white glass-btn transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-1 space-y-4 pr-2 scrollbar-thin scrollbar-thumb-slate-700">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            {msg.sender === 'agent' && (
-              <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-500/40 flex items-center justify-center flex-shrink-0 text-teal-400 shadow-sm">
-                <Bot className="w-4 h-4" />
-              </div>
+        {/* Live Audio Visualizer Banner (When Speaking or Listening) */}
+        {(isSpeaking || isListening) && (
+          <div className={`px-6 py-2.5 border-b flex items-center justify-between text-xs font-semibold backdrop-blur-xl animate-fade-in ${
+            isListening
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-violet-500/10 border-violet-500/30 text-violet-300'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-current"></span>
+              </span>
+              <span>
+                {isListening ? 'Listening to your speech... Speak clearly' : 'ExpensePilot is narrating response...'}
+              </span>
+            </div>
+            
+            {isSpeaking && (
+              <button
+                onClick={stopSpeaking}
+                className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all"
+              >
+                <Square className="w-3 h-3 fill-current" /> Stop Audio
+              </button>
             )}
+          </div>
+        )}
 
-            <div className={`max-w-[85%] space-y-2 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-              
-              {/* Tool Execution Badge */}
-              {msg.tool_called && (
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-sky-400 bg-sky-950/60 border border-sky-800/60 px-2 py-0.5 rounded-md w-fit">
-                  <Layers className="w-3 h-3" />
-                  <span>Executed Tool: [{msg.tool_called}]</span>
-                </div>
-              )}
-
-              {/* Escalation Alert Banner */}
-              {msg.escalated && (
-                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-200 text-xs shadow-sm">
-                  <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="font-semibold text-rose-300">Automatic Escalation Triggered!</strong>
-                    <p className="text-[11px] text-rose-300/90 mt-0.5">
-                      This item has been flagged for compliance review and assigned to Finance Controller Alex Morgan.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Message Bubble */}
+        {/* Chat Message Scroll Area */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+            >
               <div
-                className={`p-3.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-md ${
+                className={`max-w-[88%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
                   msg.sender === 'user'
-                    ? 'bg-gradient-to-r from-teal-600 to-sky-600 text-white rounded-tr-none'
-                    : 'bg-slate-800/95 border border-slate-700/80 text-slate-100 rounded-tl-none'
+                    ? 'bg-gradient-to-r from-cyan-500/90 to-blue-600/90 text-white shadow-[0_8px_25px_rgba(6,182,212,0.35),inset_0_1px_0_0_rgba(255,255,255,0.4)] border border-cyan-400/40 backdrop-blur-xl rounded-tr-none'
+                    : 'bg-white/[0.06] border border-white/10 text-slate-100 shadow-[0_4px_25px_rgba(0,0,0,0.3),inset_0_1px_0_0_rgba(255,255,255,0.14)] backdrop-blur-xl rounded-tl-none'
                 }`}
               >
-                {msg.text}
+                {/* Tool Badge */}
+                {msg.toolCalled && (
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-300 bg-cyan-500/20 border border-cyan-400/30 px-3 py-1 rounded-xl shadow-[0_0_10px_rgba(6,182,212,0.2)]">
+                      <Wand2 className="w-3 h-3" />
+                      <span>Action: <code className="font-mono text-white">{msg.toolCalled}()</code></span>
+                    </div>
+
+                    {/* Read Aloud Button */}
+                    <button
+                      onClick={() => speakVoice(msg.voiceText || msg.text)}
+                      title="Read out loud"
+                      className="p-1 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Structured Newly Added Expenses Preview */}
+                {msg.addedExpenses && msg.addedExpenses.length > 0 && (
+                  <div className="my-2.5 space-y-2 p-3 rounded-2xl bg-black/40 border border-emerald-500/40 shadow-inner">
+                    <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Added to Database:
+                    </span>
+                    {msg.addedExpenses.map((exp, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-xs text-slate-300 border-t border-white/[0.08] pt-1.5">
+                        <span className="font-medium">{exp.description} ({exp.category})</span>
+                        <span className="font-bold text-white text-sm">{formatCurrency(exp.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Interactive PDF Roadmap Card */}
+                {msg.pdfDownloadUrl && (
+                  <div className="my-3.5 p-4 rounded-2xl bg-gradient-to-br from-cyan-950/40 via-blue-950/30 to-indigo-950/40 border border-cyan-400/40 shadow-[0_8px_30px_rgba(6,182,212,0.25)] backdrop-blur-xl">
+                    <div className="flex items-center justify-between pb-3 border-b border-cyan-400/20">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-white text-sm">Personalized Financial Roadmap</h4>
+                          <p className="text-[11px] text-cyan-200">PDF-1.4 Standard Report • 90-Day Wealth Plan</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                        Generated
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 my-3 text-xs">
+                      <div className="p-2 rounded-xl bg-black/30 border border-white/5">
+                        <span className="text-[10px] text-slate-400 block">Health Score</span>
+                        <span className="font-bold text-cyan-300 text-sm">
+                          {msg.toolResult?.health_score || 85}/100
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-black/30 border border-white/5">
+                        <span className="text-[10px] text-slate-400 block">90-Day Target</span>
+                        <span className="font-bold text-emerald-400 text-sm">
+                          +₹15,000 Saved
+                        </span>
+                      </div>
+                    </div>
+
+                    <a
+                      href={msg.pdfDownloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download="ExpensePilot_Financial_Roadmap.pdf"
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:scale-[1.02] transition-all"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download PDF Roadmap</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Text Content */}
+                <div className="whitespace-pre-wrap">{msg.text}</div>
               </div>
 
-              {/* Citations Chips */}
-              {msg.citations && msg.citations.length > 0 && (
-                <div className="space-y-1.5 pt-1">
-                  <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-                    <FileText className="w-3 h-3 text-teal-400" />
-                    <span>Policy Citations:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {msg.citations.map((c, idx) => {
-                      const isExpanded = expandedCitation === `${msg.id}-${idx}`;
-                      return (
-                        <div key={idx} className="flex flex-col">
-                          <button
-                            onClick={() => setExpandedCitation(isExpanded ? null : `${msg.id}-${idx}`)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-800/90 hover:bg-slate-700/90 border border-teal-500/40 text-teal-300 shadow-sm transition-colors text-left"
-                          >
-                            <span className="font-bold text-teal-400">{c.section_id}</span>
-                            <span className="text-slate-300 truncate max-w-[200px]">{c.title}</span>
-                            {isExpanded ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
-                          </button>
-                          {isExpanded && c.relevant_snippet && (
-                            <div className="mt-1 p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-300 max-w-md shadow-lg">
-                              <p className="font-semibold text-teal-400 text-[11px] mb-1">{c.doc_name} — {c.section_id}</p>
-                              <p className="italic text-[11px] text-slate-300 leading-relaxed">{c.relevant_snippet}</p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons / Voice Read */}
-              {msg.sender === 'agent' && (
-                <div className="flex items-center gap-3 pt-0.5">
-                  <button
-                    onClick={() => speakText(msg.text)}
-                    title="Read answer aloud"
-                    className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-teal-400 transition-colors"
-                  >
-                    <Volume2 className="w-3 h-3" />
-                    <span>Listen</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Suggested Next Actions */}
-              {msg.suggested_actions && msg.suggested_actions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {msg.suggested_actions.map((action, aIdx) => (
+              {/* Next Suggested Action Chips */}
+              {msg.suggestedActions && msg.suggestedActions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2.5 max-w-[88%]">
+                  {msg.suggestedActions.map((action, idx) => (
                     <button
-                      key={aIdx}
+                      key={idx}
                       onClick={() => handleSend(action)}
-                      className="px-2.5 py-1 rounded-full text-xs bg-slate-800/60 hover:bg-slate-700 border border-slate-700/80 hover:border-teal-500/40 text-slate-300 hover:text-teal-300 transition-all text-left"
+                      className="text-xs px-3 py-1.5 rounded-xl glass-btn text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/60 transition-all text-left shadow-sm"
                     >
-                      💡 {action}
+                      {action}
                     </button>
                   ))}
                 </div>
               )}
-
             </div>
+          ))}
 
-            {msg.sender === 'user' && (
-              <div className="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-500/40 flex items-center justify-center flex-shrink-0 text-sky-400 shadow-sm">
-                <User className="w-4 h-4" />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {isLoading && (
-          <div className="flex gap-3 justify-start items-center">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-500/40 flex items-center justify-center flex-shrink-0 text-teal-400">
-              <Bot className="w-4 h-4" />
+          {isLoading && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 text-slate-300 text-xs w-fit backdrop-blur-xl">
+              <Bot className="w-4 h-4 text-cyan-400 animate-spin" />
+              <span>Pilot AI is analyzing and synthesizing actions...</span>
             </div>
-            <div className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-xs text-slate-400 flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-teal-400 animate-spin" />
-              <span>Analyzing policies, claims & financial data...</span>
-            </div>
-          </div>
-        )}
+          )}
 
-        {isUploading && (
-          <div className="flex gap-3 justify-start items-center">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-500/40 flex items-center justify-center flex-shrink-0 text-sky-400">
-              <FileSpreadsheet className="w-4 h-4" />
-            </div>
-            <div className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-xs text-slate-400 flex items-center gap-2">
-              <UploadCloud className="w-3.5 h-3.5 text-sky-400 animate-bounce" />
-              <span>Parsing spreadsheet, validating columns, and auditing line items with AI...</span>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Suggested Quick Prompts Bar */}
-      <div className="py-2 overflow-x-auto scrollbar-none flex gap-1.5">
-        {QUICK_PROMPTS.map((prompt, pIdx) => (
-          <button
-            key={pIdx}
-            onClick={() => handleSend(prompt)}
-            className={`px-3 py-1 rounded-full text-xs whitespace-nowrap bg-slate-800/80 border transition-all ${
-              pIdx % 2 === 0
-                ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-400'
-                : 'border-orange-500/30 text-orange-300 hover:bg-orange-500/15 hover:border-orange-400'
-            }`}
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
-
-      {/* Active Spreadsheet Attachment Pill */}
-      {attachedFile && (
-        <div className="flex items-center justify-between bg-teal-950/60 border border-teal-500/50 rounded-xl px-3 py-2 mb-2 text-xs text-teal-200 shadow-sm">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-teal-400 flex-shrink-0" />
-            <span>
-              Attached Spreadsheet: <strong className="text-white">{attachedFile.filename}</strong> ({attachedFile.row_count} rows, {attachedFile.column_count} columns)
-            </span>
-            <span className="px-1.5 py-0.5 rounded bg-teal-500/20 text-[10px] font-semibold text-teal-300">
-              AI Ready
-            </span>
-          </div>
-          <button
-            onClick={() => setAttachedFile(null)}
-            className="p-1 hover:bg-teal-900/60 rounded text-teal-300 hover:text-white transition-colors"
-            title="Detach file"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <div ref={messagesEndRef} />
         </div>
-      )}
 
-      {/* Hidden File Input for CSV / Excel */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        accept=".csv,.xlsx,.xls"
-        className="hidden"
-      />
+        {/* Quick Voice & Action Prompts Bar */}
+        <div className="px-4 py-2 border-t border-white/[0.08] bg-black/20 overflow-x-auto whitespace-nowrap scrollbar-none">
+          <div className="flex gap-2">
+            {STARTER_PROMPTS.map((prompt, i) => (
+              <button
+                key={i}
+                onClick={() => handleSend(prompt)}
+                className="text-[11px] px-3 py-1.5 rounded-xl glass-btn text-slate-300 hover:text-cyan-300 shrink-0 transition-all flex items-center gap-1.5"
+              >
+                {i < 3 && <Sparkles className="w-3 h-3 text-cyan-400" />}
+                <span>{prompt}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-      {/* Input Bar with File Upload Attachment Button */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSend();
-        }}
-        className="flex gap-2 items-center bg-slate-800/90 border border-slate-700/80 rounded-xl p-2 shadow-lg"
-      >
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          title="Upload CSV or Excel spreadsheet for AI analysis"
-          className="p-2 hover:bg-slate-700/80 text-slate-400 hover:text-teal-400 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 border border-transparent hover:border-slate-600"
-        >
-          <Paperclip className="w-4 h-4" />
-        </button>
-
+        {/* Hidden File Input for Invoice OCR and Excel/CSV Upload */}
         <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            attachedFile
-              ? `Ask anything about ${attachedFile.filename} (e.g., 'Check violations', 'Summarize expenditure')...`
-              : selectedLanguage === 'hi'
-              ? "नीति नियम, दावा या चालान स्थिति पूछें (जैसे 'होटल खर्च की सीमा क्या है?')..."
-              : "Ask a policy rule, claim/invoice status, or attach a CSV/Excel file..."
-          }
-          className="flex-1 bg-transparent px-2 py-1.5 text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept=".pdf,.png,.jpg,.jpeg,.txt,.csv,.xlsx,.xls"
+          className="hidden"
         />
 
-        <button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-500 via-amber-500 to-orange-500 hover:from-emerald-400 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold rounded-lg flex items-center gap-1.5 text-xs shadow-md shadow-orange-500/20 transition-all"
-        >
-          <span>Send</span>
-          <Send className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
-        </button>
-      </form>
+        {/* Chat & Voice Input Bar */}
+        <div className="p-4 sm:p-5 border-t border-white/[0.08] bg-black/30">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex items-center gap-2"
+          >
+            {/* Upload File Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || isLoading}
+              title="Upload Receipt (PDF/Img) or Spreadsheet (CSV/Excel)"
+              className="p-3 rounded-2xl glass-btn text-slate-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-400/40 transition-all shrink-0"
+            >
+              {isUploading ? <Upload className="w-4 h-4 animate-spin text-cyan-400" /> : <Paperclip className="w-4 h-4" />}
+            </button>
 
-      {/* Mindee Status Diagnostics Modal */}
-      {showMindeeModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-teal-400" />
-                <h3 className="font-bold text-slate-100 text-sm">Mindee AI OCR Integration Status</h3>
-              </div>
-              <button
-                onClick={() => setShowMindeeModal(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Microphone Voice Button */}
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={isLoading}
+              title={isListening ? "Stop listening" : "Click to speak to Voice Agent"}
+              className={`p-3 rounded-2xl transition-all shrink-0 ${
+                isListening
+                  ? 'bg-rose-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.6)] animate-pulse'
+                  : 'glass-btn text-cyan-300 hover:text-cyan-200 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
+              }`}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
 
-            <div className="space-y-3 text-xs text-slate-300">
-              <div className="flex justify-between p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60">
-                <span className="text-slate-400">Connection Status:</span>
-                <span className="font-semibold text-emerald-400">
-                  {mindeeInfo?.status === 'ACTIVE_CONNECTED' ? '✅ Connected (HTTP 200 OK)' : 'Ready (Fallback Active)'}
-                </span>
-              </div>
-              <div className="flex justify-between p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60">
-                <span className="text-slate-400">API Architecture:</span>
-                <span className="font-mono text-teal-300">Mindee V2 IDP Platform</span>
-              </div>
-              <div className="flex justify-between p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60">
-                <span className="text-slate-400">Authentication Key:</span>
-                <span className="font-mono text-slate-300">Configured in backend/.env</span>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[11px] leading-relaxed text-slate-300">
-                <p className="font-semibold text-teal-400 mb-1">Status Report:</p>
-                <p>{mindeeInfo?.message || "Mindee V2 API key is authenticated and active on Mindee's Intelligent Document Processing platform."}</p>
-                {mindeeInfo?.instructions && (
-                  <p className="mt-2 text-slate-400 italic">{mindeeInfo.instructions}</p>
-                )}
-              </div>
-            </div>
+            {/* Text Input Field */}
+            <input
+              type="text"
+              id="input-agent-chat"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isListening ? "Listening to your voice..." : "Ask Pilot AI or speak naturally..."}
+              className={`flex-1 glass-input rounded-2xl px-4 py-3 text-sm text-slate-100 placeholder-slate-400 transition-all ${
+                isListening ? 'border-emerald-500/50 bg-emerald-500/5' : ''
+              }`}
+            />
 
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setShowMindeeModal(false)}
-                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-semibold"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+            {/* Send Button */}
+            <button
+              type="submit"
+              id="btn-send-agent-chat"
+              disabled={!input.trim() || isLoading}
+              className="p-3 rounded-2xl glass-btn-primary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
         </div>
-      )}
 
+      </div>
     </div>
   );
 }

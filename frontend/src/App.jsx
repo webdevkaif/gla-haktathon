@@ -1,254 +1,258 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
-import LoginGateway from './components/LoginGateway';
-import SpatialCommandDashboard from './components/SpatialCommandDashboard';
+import DashboardOverview from './components/DashboardOverview';
+import ExpenseList from './components/ExpenseList';
+import ForecastingCard from './components/ForecastingCard';
+import WhatIfSimulator from './components/WhatIfSimulator';
+import SavingsGoalPlanner from './components/SavingsGoalPlanner';
+import AddExpenseModal from './components/AddExpenseModal';
 import AgentChat from './components/AgentChat';
-import FinanceDashboard from './components/FinanceDashboard';
-import ClaimsInvoicesView from './components/ClaimsInvoicesView';
-import ApprovalsEscalationsView from './components/ApprovalsEscalationsView';
-import AuditTrailView from './components/AuditTrailView';
-import PoliciesView from './components/PoliciesView';
-import Anime3DTheaterView from './components/Anime3DTheaterView';
-import { getCurrentUserId, setCurrentUserId, seedEnterpriseDemoData, getAuthToken, loginUser } from './api';
-import { AlertCircle, CheckCircle2, Lock } from 'lucide-react';
-
-const DEMO_USERS_MAP = {
-  emp_john: { id: 'emp_john', name: 'John Doe', role: 'employee', grade: 'L2', dept: 'Sales' },
-  emp_alice: { id: 'emp_alice', name: 'Alice Smith', role: 'employee', grade: 'L3', dept: 'Product' },
-  ven_acme: { id: 'ven_acme', name: 'Acme Supplies', role: 'vendor', grade: 'Ext', dept: 'Procurement' },
-  ven_techcorp: { id: 'ven_techcorp', name: 'TechCorp Solutions', role: 'vendor', grade: 'Ext', dept: 'IT Hardware' },
-  mgr_sarah: { id: 'mgr_sarah', name: 'Sarah Connor', role: 'manager', grade: 'L4', dept: 'Sales' },
-  fin_alex: { id: 'fin_alex', name: 'Alex Morgan', role: 'finance', grade: 'L5', dept: 'Finance' },
-  admin_rachel: { id: 'admin_rachel', name: 'Rachel Green', role: 'admin', grade: 'L5', dept: 'Executive' },
-};
+import AnomalyAlerts from './components/AnomalyAlerts';
+import BudgetManager from './components/BudgetManager';
+import InvoicesRoadmapView from './components/InvoicesRoadmapView';
+import PhoneAlertsModal from './components/PhoneAlertsModal';
+import PhoneAlertsView from './components/PhoneAlertsView';
+import { 
+  fetchMonthlySummary, 
+  fetchCurrentBudget, 
+  fetchForecast, 
+  fetchExpenses, 
+  fetchAlerts, 
+  fetchGoals, 
+  seedDemoData 
+} from './api';
+import { Bot, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
-  // Dual-State Interface: Pre-Auth (Login Gateway) vs Post-Auth (Spatial Dashboard)
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [activeTab, setActiveTab] = useState('spatial'); // default spatial dashboard view
-  const [currentUserId, setUserIdState] = useState(getCurrentUserId());
-  const [currentUser, setCurrentUser] = useState(DEMO_USERS_MAP[currentUserId] || DEMO_USERS_MAP.emp_john);
-  const [toast, setToast] = useState(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
   
-  // Ambient Mesh Themes: citrus (Orange & Green flagship) | obsidian | emerald | solar
-  const [currentTheme, setCurrentTheme] = useState('citrus');
+  // App data state
+  const [summary, setSummary] = useState(null);
+  const [budget, setBudget] = useState(null);
+  const [forecast, setForecast] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Auto-acquire JWT token on initial load
-  useEffect(() => {
-    if (!getAuthToken()) {
-      loginUser(currentUserId, 'password123').catch((err) => {
-        console.log("Initial auto-login notice:", err);
-      });
-    }
-  }, [currentUserId]);
+  // Modals & Drawers
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleUserChange = (newUserId) => {
-    setUserIdState(newUserId);
-    setCurrentUserId(newUserId);
-    const u = DEMO_USERS_MAP[newUserId] || { id: newUserId, name: newUserId, role: 'employee' };
-    setCurrentUser(u);
-    showToast(`Switched active session to: ${u.name} (${u.role.toUpperCase()})`);
-  };
-
-  const handleLoginSuccess = (userPayload) => {
-    if (userPayload?.id) {
-      handleUserChange(userPayload.id);
-    }
-    setIsAuthenticated(true);
-    setActiveTab('spatial');
-    showToast(`Workspace initialized: Welcome, ${userPayload?.name || 'User'}!`);
-  };
-
-  const handleLockSession = () => {
-    setIsAuthenticated(false);
-    showToast("Session locked. Returning to Glassmorphic Gateway.", "info");
-  };
-
-  const handleResetData = async () => {
+  const loadAllData = useCallback(async () => {
     try {
-      await seedEnterpriseDemoData();
-      showToast("Meridian sample data re-seeded successfully!");
-      window.location.reload();
+      const [sumRes, budRes, fcRes, expRes, alRes, gRes] = await Promise.all([
+        fetchMonthlySummary("2026-10"),
+        fetchCurrentBudget("2026-10"),
+        fetchForecast("2026-10"),
+        fetchExpenses({ month: "2026-10" }),
+        fetchAlerts(false),
+        fetchGoals(),
+      ]);
+
+      setSummary(sumRes);
+      setBudget(budRes);
+      setForecast(fcRes);
+      setExpenses(expRes);
+      setAlerts(alRes);
+      setGoals(gRes);
     } catch (err) {
-      showToast("Failed to re-seed sample data", "error");
+      console.error("Error loading application data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
+  const handleSeedDemo = async () => {
+    setIsSeeding(true);
+    try {
+      await seedDemoData();
+      await loadAllData();
+      showToast("Demo data loaded with 25+ realistic transactions, budget, goals, and anomalies!");
+    } catch (err) {
+      showToast("Failed to seed demo data", "error");
+    } finally {
+      setIsSeeding(false);
     }
   };
 
-  // Ambient mesh gradient background styles
-  const themeBgClasses = {
-    citrus: 'bg-[#060a08]',
-    emerald: 'bg-[#040e09]',
-    solar: 'bg-[#120805]',
-    obsidian: 'bg-[#07090E]'
-  };
-
-  const themeOrbs = {
-    citrus: {
-      orb1: 'bg-emerald-500/25',
-      orb2: 'bg-orange-500/25',
-      orb3: 'bg-amber-400/20'
-    },
-    emerald: {
-      orb1: 'bg-emerald-600/20',
-      orb2: 'bg-teal-500/20',
-      orb3: 'bg-green-500/15'
-    },
-    solar: {
-      orb1: 'bg-orange-600/20',
-      orb2: 'bg-amber-500/20',
-      orb3: 'bg-rose-600/15'
-    },
-    obsidian: {
-      orb1: 'bg-indigo-600/15',
-      orb2: 'bg-cyan-500/15',
-      orb3: 'bg-violet-600/15'
-    }
-  };
-
-  const activeOrbs = themeOrbs[currentTheme] || themeOrbs.citrus;
+  const unreadAlerts = alerts.filter(a => !a.is_read);
 
   return (
-    <div className={`min-h-screen ${themeBgClasses[currentTheme] || 'bg-[#07090E]'} text-slate-100 flex flex-col font-sans relative transition-colors duration-700 selection:bg-cyan-500 selection:text-white`}>
+    <div className="relative min-h-screen bg-[#060a14] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white overflow-hidden">
       
-      {/* Dynamic Ambient Mesh Canvas (Refracting Colors Under Glass) */}
+      {/* Ambient Frosted Glass Background Orbs (Mesh Glow) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className={`absolute -top-32 -left-32 w-[600px] h-[600px] ${activeOrbs.orb1} rounded-full blur-[140px] animate-float-1 transition-all duration-1000`} />
-        <div className={`absolute top-1/3 -right-40 w-[550px] h-[550px] ${activeOrbs.orb2} rounded-full blur-[160px] animate-float-2 transition-all duration-1000`} />
-        <div className={`absolute -bottom-32 left-1/4 w-[650px] h-[650px] ${activeOrbs.orb3} rounded-full blur-[150px] animate-float-3 transition-all duration-1000`} />
+        {/* Orb 1: Cyan / Sky glow top-left */}
+        <div className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full bg-gradient-to-br from-cyan-500/25 to-blue-600/15 blur-[130px] animate-float-1"></div>
+        {/* Orb 2: Violet / Fuchsia glow top-right */}
+        <div className="absolute -top-24 -right-28 w-[600px] h-[600px] rounded-full bg-gradient-to-bl from-purple-600/25 to-pink-600/15 blur-[150px] animate-float-2"></div>
+        {/* Orb 3: Indigo / Blue center bloom */}
+        <div className="absolute top-1/3 left-1/3 w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[160px] animate-float-3"></div>
+        {/* Orb 4: Emerald / Teal glow bottom-right */}
+        <div className="absolute -bottom-36 right-10 w-[550px] h-[550px] rounded-full bg-emerald-500/20 blur-[140px] animate-float-1"></div>
+        {/* Subtle glass grid texture */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
       </div>
 
-      {/* Global Interactive Notification Toast */}
+      {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 animate-bounce">
-          <div className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 shadow-2xl border backdrop-blur-xl ${
-            toast.type === 'success'
-              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
-              : toast.type === 'error'
-              ? 'bg-rose-950/90 text-rose-300 border-rose-500/40'
-              : 'bg-slate-900/90 text-cyan-300 border-cyan-500/40'
-          }`}>
-            {toast.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-cyan-400" />
-            )}
-            <span>{toast.message}</span>
-          </div>
+        <div className="fixed top-20 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl glass-panel-deep border border-cyan-500/50 text-slate-100 shadow-2xl animate-fade-in">
+          {toast.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 text-rose-400" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          )}
+          <span className="text-xs font-semibold">{toast.message}</span>
         </div>
       )}
 
-      {/* =========================================================================
-          DUAL-STATE INTERFACE SWITCH
-          ========================================================================= */}
-      {!isAuthenticated ? (
-        
-        /* -------------------------------------------------------------------------
-           VIEW 1: The Glassmorphic Login & Session Gateway (Pre-Auth State)
-           ------------------------------------------------------------------------- */
-        <main className="flex-1 relative z-10">
-          <LoginGateway 
-            onLoginSuccess={handleLoginSuccess}
-            currentTheme={currentTheme}
-            setCurrentTheme={setCurrentTheme}
-          />
-        </main>
+      {/* Top Navbar */}
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenAddExpense={() => setIsAddExpenseOpen(true)}
+        onToggleChat={() => setIsChatOpen(prev => !prev)}
+        onToggleAlerts={() => setIsAlertsOpen(prev => !prev)}
+        onTogglePhoneAlerts={() => setIsPhoneModalOpen(prev => !prev)}
+        unreadAlertCount={unreadAlerts.length}
+        onSeedDemo={handleSeedDemo}
+        isSeeding={isSeeding}
+      />
 
-      ) : (
-
-        /* -------------------------------------------------------------------------
-           VIEW 2: The Spatial Productivity Command Dashboard (Post-Auth State)
-           ------------------------------------------------------------------------- */
-        <div className="flex-1 flex flex-col relative z-10">
-          
-          {/* Global Spatial Navbar */}
-          <Navbar 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            onUserChange={handleUserChange}
-            onResetData={handleResetData}
-            onLockSession={handleLockSession}
-          />
-
-          {/* Main Content View Container */}
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-            
-            {/* Primary Spatial Command Dashboard */}
-            {activeTab === 'spatial' && (
-              <SpatialCommandDashboard 
-                currentUser={currentUser}
-                onLockSession={handleLockSession}
-                onNavigateTab={setActiveTab}
-                currentTheme={currentTheme}
-                setCurrentTheme={setCurrentTheme}
-              />
-            )}
-
-            {/* Autonomous Copilot Agent Chat */}
-            {activeTab === 'chat' && (
-              <AgentChat currentUser={currentUser} onNavigateTab={setActiveTab} />
-            )}
-
-            {/* Executive Finance Dashboard */}
-            {activeTab === 'dashboard' && (
-              <FinanceDashboard onNavigateTab={setActiveTab} />
-            )}
-
-            {/* Claims & Invoices Hub */}
-            {activeTab === 'claims_invoices' && (
-              <ClaimsInvoicesView currentUser={currentUser} />
-            )}
-
-            {/* Approvals & Escalations Matrix */}
-            {activeTab === 'approvals_escalations' && (
-              <ApprovalsEscalationsView currentUser={currentUser} />
-            )}
-
-            {/* Hash-Chained Cryptographic Audit Trail */}
-            {activeTab === 'audit' && (
-              <AuditTrailView />
-            )}
-
-            {/* Corporate Expense & Procurement Policies */}
-            {activeTab === 'policies' && (
-              <PoliciesView />
-            )}
-
-            {/* Interactive 3D Anime & Shinobi Jutsu Engine */}
-            {activeTab === 'anime_3d' && (
-              <Anime3DTheaterView 
-                currentUser={currentUser} 
-                onNavigateTab={setActiveTab} 
-              />
-            )}
-
-          </main>
-
-          {/* Spatial Footer Watermark */}
-          <footer className="border-t border-white/10 py-3 text-center text-xs text-slate-400 bg-black/40 backdrop-blur-md">
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="font-semibold text-white">Expense Pilot</span>
-              <span>•</span>
-              <span className="text-cyan-400 font-mono">Spatial UI Architecture</span>
-              <span>•</span>
-              <span className="text-slate-400 font-mono">Meridian DEV-C04</span>
-              <span>•</span>
-              <button 
-                onClick={handleLockSession}
-                className="text-slate-400 hover:text-rose-400 flex items-center gap-1 font-mono transition-colors ml-2"
-              >
-                <Lock className="w-3 h-3" />
-                <span>Lock Session</span>
-              </button>
+      {/* Main Content View Container */}
+      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+            <div className="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 animate-pulse">
+              <Sparkles className="w-6 h-6" />
             </div>
-          </footer>
+            <p className="text-sm text-slate-400">Initializing ExpensePilot Autonomous Agent...</p>
+          </div>
+        ) : (
+          <>
+            {activeTab === 'dashboard' && (
+              <DashboardOverview
+                summary={summary}
+                budget={budget}
+                forecast={forecast}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+                onOpenAddExpense={() => setIsAddExpenseOpen(true)}
+                onToggleChat={() => setIsChatOpen(true)}
+                onTogglePhoneAlerts={() => setIsPhoneModalOpen(true)}
+              />
+            )}
 
+            {activeTab === 'phone' && (
+              <PhoneAlertsView
+                onToggleChat={() => setIsChatOpen(true)}
+              />
+            )}
+
+            {activeTab === 'invoices' && (
+              <InvoicesRoadmapView
+                onToggleChat={() => setIsChatOpen(true)}
+              />
+            )}
+
+            {activeTab === 'transactions' && (
+              <ExpenseList
+                expenses={expenses}
+                onExpenseMutated={loadAllData}
+                onOpenAddModal={() => setIsAddExpenseOpen(true)}
+              />
+            )}
+
+            {activeTab === 'forecast' && (
+              <ForecastingCard
+                forecast={forecast}
+                expenses={expenses}
+                onExpenseUpdated={loadAllData}
+              />
+            )}
+
+            {activeTab === 'simulator' && (
+              <WhatIfSimulator
+                summary={summary}
+              />
+            )}
+
+            {activeTab === 'goals' && (
+              <SavingsGoalPlanner
+                goals={goals}
+                onGoalsMutated={loadAllData}
+              />
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Floating Action Button for AI Chat */}
+      <button
+        id="fab-agent-chat"
+        onClick={() => setIsChatOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm shadow-xl shadow-cyan-500/30 hover:scale-105 transition-all group"
+      >
+        <div className="relative">
+          <Bot className="w-5 h-5" />
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+          </span>
         </div>
-      )}
+        <span>Ask Pilot AI</span>
+      </button>
+
+      {/* Modals & Slide-out Drawers */}
+      <AddExpenseModal
+        isOpen={isAddExpenseOpen}
+        onClose={() => setIsAddExpenseOpen(false)}
+        onExpenseAdded={loadAllData}
+      />
+
+      <AgentChat
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onDataMutated={loadAllData}
+      />
+
+      <AnomalyAlerts
+        isOpen={isAlertsOpen}
+        onClose={() => setIsAlertsOpen(false)}
+        alerts={alerts}
+        onAlertsMutated={loadAllData}
+      />
+
+      <BudgetManager
+        budget={budget}
+        isOpen={isBudgetModalOpen}
+        onClose={() => setIsBudgetModalOpen(false)}
+        onBudgetUpdated={loadAllData}
+      />
+
+      <PhoneAlertsModal
+        isOpen={isPhoneModalOpen}
+        onClose={() => setIsPhoneModalOpen(false)}
+      />
+
+      {/* Footer */}
+      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+        <p>ExpensePilot AI — Autonomous Financial Management Agent • GLA Hackathon Edition</p>
+      </footer>
 
     </div>
   );

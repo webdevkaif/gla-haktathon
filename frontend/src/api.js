@@ -1,388 +1,254 @@
 const API_BASE = "http://127.0.0.1:8000/api";
 
-export function getCurrentUserId() {
-  return localStorage.getItem("expense_pilot_user") || "emp_john";
+export async function fetchMonthlySummary(month = "2026-10") {
+  const res = await fetch(`${API_BASE}/analytics/monthly?month=${month}`);
+  if (!res.ok) throw new Error("Failed to fetch monthly summary");
+  return res.json();
 }
 
-export function setCurrentUserId(userId) {
-  localStorage.setItem("expense_pilot_user", userId);
+export async function fetchCurrentBudget(month = "2026-10") {
+  const res = await fetch(`${API_BASE}/budgets/current?month=${month}`);
+  if (!res.ok) throw new Error("Failed to fetch budget");
+  return res.json();
 }
 
-export function getAuthToken() {
-  return localStorage.getItem("expense_pilot_token") || null;
-}
-
-export function setAuthToken(token) {
-  if (token) {
-    localStorage.setItem("expense_pilot_token", token);
-  } else {
-    localStorage.removeItem("expense_pilot_token");
-  }
-}
-
-function getAuthHeaders(extra = {}) {
-  const headers = {
-    "X-User-Id": getCurrentUserId(),
-    ...extra
-  };
-  const token = getAuthToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  return headers;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Users & Authentication
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function loginUser(username, password) {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+export async function updateBudget(data) {
+  const res = await fetch(`${API_BASE}/budgets`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Authentication failed");
-  }
-  const data = await res.json();
-  if (data.access_token) {
-    setAuthToken(data.access_token);
-    if (data.user?.id) {
-      setCurrentUserId(data.user.id);
-    }
-  }
-  return data;
-}
-
-export function logoutUser() {
-  setAuthToken(null);
-  setCurrentUserId("emp_john");
-}
-
-export async function fetchDemoAccounts() {
-  const res = await fetch(`${API_BASE}/auth/demo-accounts`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error("Failed to fetch demo accounts");
+  if (!res.ok) throw new Error("Failed to update budget");
   return res.json();
 }
 
-export async function fetchUsers() {
-  const res = await fetch(`${API_BASE}/users`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error("Failed to fetch users");
+export async function fetchExpenses(params = {}) {
+  const query = new URLSearchParams();
+  if (params.month) query.append("month", params.month);
+  if (params.category && params.category !== "All") query.append("category", params.category);
+  if (params.is_unusual !== undefined && params.is_unusual !== null) query.append("is_unusual", params.is_unusual);
+  if (params.search) query.append("search", params.search);
+
+  const res = await fetch(`${API_BASE}/expenses?${query.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch expenses");
   return res.json();
 }
 
-export async function fetchMe() {
-  const res = await fetch(`${API_BASE}/auth/me`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error("Failed to fetch user profile");
-  return res.json();
-}
-
-export async function seedEnterpriseDemoData() {
-  const res = await fetch(`${API_BASE}/admin/seed`, {
+export async function createExpense(data) {
+  const res = await fetch(`${API_BASE}/expenses`, {
     method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to seed enterprise data");
+  if (!res.ok) throw new Error("Failed to create expense");
   return res.json();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Dashboard Summary (6 KPIs + Tables)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchDashboardSummary() {
-  const res = await fetch(`${API_BASE}/dashboard/summary`, {
-    headers: getAuthHeaders()
+export async function deleteExpense(id) {
+  const res = await fetch(`${API_BASE}/expenses/${id}`, {
+    method: "DELETE",
   });
-  if (!res.ok) throw new Error("Failed to fetch dashboard summary");
+  if (!res.ok) throw new Error("Failed to delete expense");
   return res.json();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Claims
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchClaims(status = null, category = null) {
-  const params = new URLSearchParams();
-  if (status && status !== "All") params.append("status", status);
-  if (category && category !== "All") params.append("category", category);
-
-  const res = await fetch(`${API_BASE}/claims?${params.toString()}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error("Failed to fetch claims");
-  return res.json();
-}
-
-export async function createClaim(claimData) {
-  const res = await fetch(`${API_BASE}/claims`, {
+export async function confirmUnusualExpense(id) {
+  const res = await fetch(`${API_BASE}/expenses/confirm-unusual/${id}`, {
     method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(claimData)
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to submit claim");
-  }
+  if (!res.ok) throw new Error("Failed to confirm expense");
   return res.json();
 }
 
-export async function fetchClaimDetail(claimNo) {
-  const res = await fetch(`${API_BASE}/claims/${claimNo}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error(`Claim ${claimNo} not found`);
+export async function fetchForecast(month = "2026-10") {
+  const res = await fetch(`${API_BASE}/analytics/forecast?month=${month}`);
+  if (!res.ok) throw new Error("Failed to fetch forecast");
   return res.json();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Invoices
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchInvoices(status = null, poNo = null) {
-  const params = new URLSearchParams();
-  if (status && status !== "All") params.append("status", status);
-  if (poNo) params.append("po_no", poNo);
-
-  const res = await fetch(`${API_BASE}/invoices?${params.toString()}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) {
-    if (res.status === 403) return [];
-    throw new Error("Failed to fetch invoices");
-  }
-  return res.json();
-}
-
-export async function createInvoice(invoiceData) {
-  const res = await fetch(`${API_BASE}/invoices`, {
+export async function simulateWhatIf(payload, month = "2026-10") {
+  const res = await fetch(`${API_BASE}/analytics/what-if?month=${month}`, {
     method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(invoiceData)
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to submit invoice");
-  }
+  if (!res.ok) throw new Error("Failed to simulate what-if");
   return res.json();
 }
 
-export async function ensureAuthToken() {
-  let token = getAuthToken();
-  if (!token) {
-    try {
-      const data = await loginUser(getCurrentUserId(), "password123");
-      token = data.access_token;
-    } catch (e) {
-      console.warn("Auto-token generation notice:", e);
-    }
-  }
-  return token;
+export async function fetchAlerts(unreadOnly = false) {
+  const res = await fetch(`${API_BASE}/analytics/alerts?unread_only=${unreadOnly}`);
+  if (!res.ok) throw new Error("Failed to fetch alerts");
+  return res.json();
 }
 
-export async function uploadInvoiceOCR(formData) {
-  await ensureAuthToken();
-  const res = await fetch(`${API_BASE}/invoices/upload`, {
+export async function markAlertRead(id) {
+  const res = await fetch(`${API_BASE}/analytics/alerts/${id}/read`, {
     method: "POST",
-    headers: getAuthHeaders(),
-    body: formData
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to process invoice OCR");
-  }
+  if (!res.ok) throw new Error("Failed to mark alert as read");
   return res.json();
 }
 
-export async function fetchInvoiceDetail(invoiceNo) {
-  const res = await fetch(`${API_BASE}/invoices/${invoiceNo}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error(`Invoice ${invoiceNo} not found`);
+export async function fetchGoals() {
+  const res = await fetch(`${API_BASE}/goals`);
+  if (!res.ok) throw new Error("Failed to fetch goals");
   return res.json();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Approvals & Workflow
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchApprovals(state = null, entityType = null) {
-  const params = new URLSearchParams();
-  if (state && state !== "All") params.append("state", state);
-  if (entityType && entityType !== "All") params.append("entity_type", entityType);
-
-  const res = await fetch(`${API_BASE}/approvals?${params.toString()}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error("Failed to fetch approvals");
-  return res.json();
-}
-
-export async function decideApproval(approvalId, decision, notes = "") {
-  const res = await fetch(`${API_BASE}/approvals/${approvalId}/decide`, {
+export async function createGoal(payload) {
+  const res = await fetch(`${API_BASE}/goals`, {
     method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ decision, notes, comment: notes })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to decide approval");
-  }
+  if (!res.ok) throw new Error("Failed to create goal");
   return res.json();
 }
 
-export async function sendApprovalReminder(approvalId, force = false) {
-  const res = await fetch(`${API_BASE}/approvals/${approvalId}/remind`, {
+export async function addFundsToGoal(goalId, amount) {
+  const res = await fetch(`${API_BASE}/goals/${goalId}/add-funds?amount=${amount}`, {
+    method: "PUT",
+  });
+  if (!res.ok) throw new Error("Failed to add funds");
+  return res.json();
+}
+
+export async function deleteGoal(goalId) {
+  const res = await fetch(`${API_BASE}/goals/${goalId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete goal");
+  return res.json();
+}
+
+export async function seedDemoData() {
+  const res = await fetch(`${API_BASE}/analytics/seed-demo`, {
     method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ force })
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to send reminder");
-  }
+  if (!res.ok) throw new Error("Failed to seed demo data");
   return res.json();
 }
 
-export async function checkDueReminders() {
-  const res = await fetch(`${API_BASE}/approvals/check-reminders`, {
-    method: "POST",
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error("Failed to run SLA reminder check");
-  return res.json();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Escalations
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchEscalations(status = null, severity = null) {
-  const params = new URLSearchParams();
-  if (status && status !== "All") params.append("status", status);
-  if (severity && severity !== "All") params.append("severity", severity);
-
-  const res = await fetch(`${API_BASE}/escalations?${params.toString()}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error("Failed to fetch escalations");
-  return res.json();
-}
-
-export async function createEscalation(escData) {
-  const res = await fetch(`${API_BASE}/escalations`, {
-    method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(escData)
-  });
-  if (!res.ok) throw new Error("Failed to create escalation");
-  return res.json();
-}
-
-export async function resolveEscalation(escalationId, note = "") {
-  const res = await fetch(`${API_BASE}/escalations/${escalationId}/resolve`, {
-    method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ resolution_note: note })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Only Finance personnel can resolve escalations");
-  }
-  return res.json();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Audit Log & Verification
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchAuditLogs(skip = 0, limit = 50, filters = {}) {
-  const params = new URLSearchParams({ skip, limit });
-  if (filters.actor_id) params.append("actor_id", filters.actor_id);
-  if (filters.entity_type) params.append("entity_type", filters.entity_type);
-  if (filters.action) params.append("action", filters.action);
-
-  const res = await fetch(`${API_BASE}/audit?${params.toString()}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error("Failed to fetch audit log");
-  return res.json();
-}
-
-export async function verifyAuditChain() {
-  const res = await fetch(`${API_BASE}/audit/verify`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error("Failed to verify audit chain");
-  return res.json();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Policies
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function fetchPolicies(category = null, query = null) {
-  const params = new URLSearchParams();
-  if (category && category !== "All") params.append("category", category);
-  if (query) params.append("q", query);
-
-  const res = await fetch(`${API_BASE}/policies?${params.toString()}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) throw new Error("Failed to fetch corporate policies");
-  return res.json();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Agent Chat, File Upload & Mindee Status
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function sendAgentMessage(message, userId = null, language = "en", fileContext = null) {
-  await ensureAuthToken();
+export async function sendAgentMessage(message) {
   const res = await fetch(`${API_BASE}/agent/chat`, {
     method: "POST",
-    headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      message,
-      user_id: userId || getCurrentUserId(),
-      language: language || "en",
-      file_context: fileContext || null
-    })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Agent query failed");
-  }
+  if (!res.ok) throw new Error("Agent message failed");
   return res.json();
 }
 
-export async function uploadAgentSpreadsheet(file) {
-  await ensureAuthToken();
-  const formData = new FormData();
-  formData.append("file", file);
+export async function fetchInvoices(params = {}) {
+  const query = new URLSearchParams();
+  if (params.category && params.category !== "All") query.append("category", params.category);
+  if (params.status) query.append("status", params.status);
+  const res = await fetch(`${API_BASE}/invoices?${query.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch invoices");
+  return res.json();
+}
 
-  const res = await fetch(`${API_BASE}/agent/upload-file`, {
+export async function fetchInvoiceSummary() {
+  const res = await fetch(`${API_BASE}/invoices/summary`);
+  if (!res.ok) throw new Error("Failed to fetch invoice summary");
+  return res.json();
+}
+
+export async function uploadInvoiceFile(formData) {
+  const res = await fetch(`${API_BASE}/invoices/upload`, {
     method: "POST",
-    headers: getAuthHeaders(),
-    body: formData
+    body: formData,
   });
+  if (!res.ok) throw new Error("Failed to upload invoice");
+  return res.json();
+}
 
+export async function createInvoice(data) {
+  const res = await fetch(`${API_BASE}/invoices`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to create invoice");
+  return res.json();
+}
+
+export async function deleteInvoice(id) {
+  const res = await fetch(`${API_BASE}/invoices/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete invoice");
+  return res.json();
+}
+
+export async function fetchFinancialRoadmap(month = "2026-10") {
+  const res = await fetch(`${API_BASE}/analytics/roadmap?month=${month}`);
+  if (!res.ok) throw new Error("Failed to fetch roadmap");
+  return res.json();
+}
+
+export function getRoadmapPdfUrl(month = "2026-10") {
+  return `${API_BASE}/analytics/roadmap/pdf?month=${month}`;
+}
+
+export async function fetchPhoneSettings() {
+  const res = await fetch(`${API_BASE}/notifications/settings`);
+  if (!res.ok) throw new Error("Failed to fetch phone settings");
+  return res.json();
+}
+
+export async function savePhoneSettings(data) {
+  const res = await fetch(`${API_BASE}/notifications/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to save phone settings");
+  return res.json();
+}
+
+export async function fetchNotificationHistory() {
+  const res = await fetch(`${API_BASE}/notifications/history`);
+  if (!res.ok) throw new Error("Failed to fetch notification history");
+  return res.json();
+}
+
+export async function sendTestPhoneMessage(payload = {}) {
+  const res = await fetch(`${API_BASE}/notifications/send-test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to send test message");
+  return res.json();
+}
+
+export async function dispatchPhoneSummary(channel = "SMS") {
+  const res = await fetch(`${API_BASE}/notifications/dispatch-summary?channel=${channel}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to dispatch summary");
+  return res.json();
+}
+
+export async function dispatchPhoneRoadmap(channel = "SMS") {
+  const res = await fetch(`${API_BASE}/notifications/dispatch-roadmap?channel=${channel}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to dispatch roadmap");
+  return res.json();
+}
+
+export async function uploadExpenseCSV(formData) {
+  const res = await fetch(`${API_BASE}/expenses/upload-csv`, {
+    method: "POST",
+    body: formData,
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to parse spreadsheet");
+    throw new Error(err.detail || "Failed to upload CSV/Excel file");
   }
   return res.json();
 }
 
-export async function fetchMindeeStatus() {
-  const res = await fetch(`${API_BASE}/invoices/mindee/status`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to fetch Mindee OCR status");
-  }
-  return res.json();
-}

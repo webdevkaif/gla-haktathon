@@ -6,7 +6,8 @@ from backend.app.config import settings
 from backend.app.database import init_db, close_db, get_database
 from backend.app.routers import (
     users, claims, invoices, approvals, escalations,
-    audit, policies, dashboard, agent, notifications
+    audit, policies, dashboard, agent, notifications,
+    expenses, analytics, budgets, goals
 )
 from backend.app.services.seed_data import seed_enterprise_data
 from backend.app.services.workflow import check_and_send_due_reminders
@@ -82,6 +83,10 @@ app.include_router(policies.router)
 app.include_router(dashboard.router)
 app.include_router(agent.router)
 app.include_router(notifications.router)
+app.include_router(expenses.router)
+app.include_router(analytics.router)
+app.include_router(budgets.router)
+app.include_router(goals.router)
 
 @app.get("/")
 async def root():
