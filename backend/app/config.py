@@ -21,6 +21,8 @@ class Settings(BaseModel):
     # Optional LLM API Keys
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     
     # Mindee Invoice OCR API Key and optional V2 Model ID
     MINDEE_API_KEY: str = os.getenv("MINDEE_API_KEY", "")

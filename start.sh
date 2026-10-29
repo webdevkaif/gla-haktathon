@@ -28,3 +28,4 @@ export PYTHONPATH="$PROJECT_ROOT"
 
 # Start frontend in foreground
 (cd "$PROJECT_ROOT/frontend" && npm run dev -- --host 127.0.0.1 --port 5173)
+

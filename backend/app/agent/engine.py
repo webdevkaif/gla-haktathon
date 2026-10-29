@@ -635,7 +635,52 @@ async def process_agent_message(
             ]
         }
 
-    # 10. General Conversational / Gemini integration
+    # 10. High-Speed Groq AI Integration (Llama / GPT on Groq Cloud)
+    if settings.GROQ_API_KEY:
+        try:
+            summary = await tool_get_monthly_spending(db, user_id, curr_month)
+            system_prompt = (
+                "You are ExpensePilot AI, an autonomous financial intelligence copilot and advisor. "
+                "You help users analyze expenses, manage budgets, flag anomalies, and optimize savings. "
+                f"User Financial Context for {curr_month}: "
+                f"Total Spent: ₹{summary['total_spent']:,.0f} | Budget: ₹{summary['total_budget']:,.0f} "
+                f"({summary['percentage_used']}% utilized) | Remaining Budget: ₹{summary['remaining_budget']:,.0f} "
+                f"(₹{summary['daily_budget_remaining']:,.0f}/day allowed) | Top Category: {summary['top_category']} (₹{summary['top_category_amount']:,.0f}). "
+                "Guidelines: Be concise, engaging, helpful, and always quote amounts in ₹ (INR). "
+                "Provide actionable financial tips and advise users on staying under budget."
+            )
+            groq_headers = {
+                "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            groq_payload = {
+                "model": settings.GROQ_MODEL or "openai/gpt-oss-120b",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                "temperature": 0.5,
+                "max_tokens": 512
+            }
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post("https://api.groq.com/openai/v1/chat/completions", headers=groq_headers, json=groq_payload)
+                if resp.status_code == 200:
+                    ai_text = resp.json()["choices"][0]["message"]["content"]
+                    return {
+                        "reply": ai_text,
+                        "tool_called": "groq_llm",
+                        "tool_result": {"provider": "Groq Cloud", "model": settings.GROQ_MODEL},
+                        "suggested_actions": [
+                            "How much did I spend this month?",
+                            "Where did most of my money go?",
+                            "Detect unusual expenses",
+                            "Create PDF roadmap and give it to me"
+                        ]
+                    }
+        except Exception as e:
+            print(f"Groq LLM call info: {e}")
+
+    # 11. General Conversational / Gemini integration
     if settings.GEMINI_API_KEY:
         try:
             summary = await tool_get_monthly_spending(db, user_id, curr_month)

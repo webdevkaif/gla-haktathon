@@ -68,3 +68,4 @@ frontendProcess.on('exit', (code) => {
     console.error(`\x1b[31m[FRONTEND ERROR] Frontend process exited with code ${code}\x1b[0m`);
   }
 });
+
