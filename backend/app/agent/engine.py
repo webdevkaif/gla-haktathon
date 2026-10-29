@@ -499,9 +499,47 @@ async def process_agent_message(
     # 2. Mask PII in input
     masked_message, had_pii = mask_pii(message)
 
-    # 3. Query LLM if API key configured and network is open, otherwise use deterministic engine
+    # 3. Query LLM (Gemini or Groq) if API key configured and network is open, otherwise use deterministic engine
     result = None
-    if settings.GROQ_API_KEY and not file_context:
+    if settings.GEMINI_API_KEY and not file_context:
+        try:
+            lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                res = await client.post(
+                    gemini_url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{
+                            "parts": [{
+                                "text": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')})\nUser Query: {masked_message}"
+                            }]
+                        }],
+                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 600}
+                    }
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0]:
+                        raw_reply = candidates[0]["content"]["parts"][0]["text"]
+                        citations = []
+                        if any(k in masked_message.lower() for k in ["policy", "limit", "hotel", "meal", "travel", "receipt", "rule"]):
+                            p_qa = await tool_policy_qa(db, masked_message, user_doc)
+                            citations = p_qa.get("citations", [])
+
+                        result = {
+                            "reply": raw_reply,
+                            "citations": citations,
+                            "tool_called": "policy_qa" if citations else None,
+                            "tool_result": None,
+                            "escalated": False,
+                            "suggested_actions": ["Check claim status", "View policy limits"]
+                        }
+        except Exception as e:
+            print(f"[Agent Notice] Gemini API fallback: {e}")
+
+    if not result and settings.GROQ_API_KEY and not file_context:
         try:
             lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
             async with httpx.AsyncClient(timeout=6.0) as client:
@@ -535,7 +573,7 @@ async def process_agent_message(
                         "suggested_actions": ["Check claim status", "View policy limits"]
                     }
         except Exception as e:
-            print(f"[Agent Notice] LLM fallback active: {e}")
+            print(f"[Agent Notice] Groq LLM fallback active: {e}")
 
     # Fallback to deterministic engine with multi-language and spreadsheet support
     if not result:
