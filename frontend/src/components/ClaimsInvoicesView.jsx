@@ -123,14 +123,14 @@ export default function ClaimsInvoicesView({ currentUser }) {
 
   const getStatusBadge = (status) => {
     const map = {
-      Received: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-      Submitted: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-      'Pending Manager': 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      'Pending Finance': 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      'Pending Approval': 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      Approved: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-      Paid: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
-      Disputed: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+      Received: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+      Submitted: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+      'Pending Manager': 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm',
+      'Pending Finance': 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm',
+      'Pending Approval': 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm',
+      Approved: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm',
+      Paid: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
+      Disputed: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
       Rejected: 'bg-rose-500/20 text-rose-300 border-rose-500/40'
     };
     const style = map[status] || 'bg-slate-700 text-slate-300 border-slate-600';
@@ -179,14 +179,14 @@ export default function ClaimsInvoicesView({ currentUser }) {
       {/* Header with Sub-Tabs & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/90 border border-slate-700/80 rounded-xl p-3 shadow-sm">
         
-        {/* Sub-Tabs */}
+        {/* Sub-Tabs (Emerald & Orange) */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveSubTab('claims')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeSubTab === 'claims'
-                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-md shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
@@ -194,10 +194,10 @@ export default function ClaimsInvoicesView({ currentUser }) {
           </button>
           <button
             onClick={() => setActiveSubTab('invoices')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeSubTab === 'invoices'
-                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-orange-500/25 text-orange-300 border border-orange-500/50 shadow-md shadow-orange-500/20'
+                : 'text-slate-400 hover:text-orange-300 hover:bg-orange-500/10'
             }`}
           >
             <Receipt className="w-3.5 h-3.5" />
@@ -210,9 +210,9 @@ export default function ClaimsInvoicesView({ currentUser }) {
           {currentUser?.role !== 'vendor' && (
             <button
               onClick={() => setIsClaimModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 text-slate-950 text-xs font-bold shadow-md transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold shadow-md shadow-emerald-500/25 transition-all"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
               <span>Submit Claim</span>
             </button>
           )}
@@ -220,9 +220,9 @@ export default function ClaimsInvoicesView({ currentUser }) {
           {(currentUser?.role === 'vendor' || currentUser?.role === 'finance') && (
             <button
               onClick={() => setIsInvoiceModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 text-xs font-semibold transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 text-xs font-bold shadow-md shadow-orange-500/25 transition-all"
             >
-              <Upload className="w-3.5 h-3.5 text-teal-400" />
+              <Upload className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
               <span>Upload Invoice (OCR)</span>
             </button>
           )}

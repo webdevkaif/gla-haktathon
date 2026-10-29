@@ -265,6 +265,95 @@
 .waveform-bar-7 { animation: waveformPulse 1.4s ease-in-out infinite 0.25s; }
 .waveform-bar-8 { animation: waveformPulse 1.0s ease-in-out infinite 0.15s; }
 
+/* =========================================================
+   VIBRANT ORANGE & GREEN / MULTI-COLOR DESIGN SYSTEM
+   ========================================================= */
+
+/* Frosted Citrus (Emerald to Orange) Gradient Button */
+.glass-btn-citrus {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(249, 115, 22, 0.9) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    0 8px 24px -4px rgba(249, 115, 22, 0.4),
+    0 0 20px -2px rgba(16, 185, 129, 0.35),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-btn-citrus:hover {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 1) 0%, rgba(251, 146, 60, 0.95) 100%);
+  box-shadow: 
+    0 12px 32px -4px rgba(249, 115, 22, 0.55),
+    0 0 25px rgba(52, 211, 153, 0.5),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
+  transform: translateY(-1px);
+}
+
+/* Frosted Cyber Orange Button */
+.glass-btn-orange {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.9) 0%, rgba(234, 88, 12, 0.85) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 8px 24px -4px rgba(249, 115, 22, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-btn-orange:hover {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.95) 0%, rgba(249, 115, 22, 0.9) 100%);
+  box-shadow: 
+    0 12px 30px -4px rgba(249, 115, 22, 0.6),
+    0 0 20px rgba(251, 146, 60, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+/* Glowing Border Hover Effects */
+.hover-glow-emerald:hover {
+  border-color: rgba(52, 211, 153, 0.5) !important;
+  box-shadow: 0 0 25px -4px rgba(16, 185, 129, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+}
+
+.hover-glow-orange:hover {
+  border-color: rgba(251, 146, 60, 0.5) !important;
+  box-shadow: 0 0 25px -4px rgba(249, 115, 22, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Vibrant Badges */
+.badge-orange {
+  background: rgba(249, 115, 22, 0.12);
+  color: #fdba74;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
+.badge-emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+/* Gradient Text Utilities */
+.text-gradient-citrus {
+  background: linear-gradient(135deg, #34d399 0%, #fb923c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-orange {
+  background: linear-gradient(135deg, #fdba74 0%, #f97316 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-emerald {
+  background: linear-gradient(135deg, #a7f3d0 0%, #10b981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+
 
 
 

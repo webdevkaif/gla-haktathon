@@ -151,6 +151,7 @@ export default function SpatialCommandDashboard({
     { id: 'invoices', cmd: '/view invoices', label: 'Open Claims & Vendor Invoices Hub', action: () => onNavigateTab('claims_invoices'), badge: '⌘3' },
     { id: 'approvals', cmd: '/view approvals', label: 'Open Approvals & Escalations Matrix', action: () => onNavigateTab('approvals_escalations'), badge: '⌘4' },
     { id: 'audit', cmd: '/view audit', label: 'Inspect Cryptographic Hash Chain Audit Trail', action: () => onNavigateTab('audit'), badge: '⌘5' },
+    { id: 'theme-citrus', cmd: '/theme citrus', label: 'Switch Theme to Citrus (Emerald & Orange Flagship)', action: () => setCurrentTheme('citrus'), badge: 'FLAGSHIP' },
     { id: 'theme-obsidian', cmd: '/theme obsidian', label: 'Switch Theme to Cyber Obsidian', action: () => setCurrentTheme('obsidian'), badge: 'THEME' },
     { id: 'theme-emerald', cmd: '/theme emerald', label: 'Switch Theme to Aurora Emerald', action: () => setCurrentTheme('emerald'), badge: 'THEME' },
     { id: 'theme-solar', cmd: '/theme solar', label: 'Switch Theme to Solar Flare', action: () => setCurrentTheme('solar'), badge: 'THEME' },
@@ -213,10 +214,12 @@ export default function SpatialCommandDashboard({
               <div className="hidden md:flex items-center gap-1 p-1 rounded-xl glass-tier-1 border border-white/10 text-[10px] font-mono">
                 <button
                   type="button"
-                  onClick={() => setCurrentTheme('obsidian')}
-                  className={`px-2 py-1 rounded-lg transition-all ${currentTheme === 'obsidian' ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-400/30' : 'text-slate-400 hover:text-white'}`}
+                  onClick={() => setCurrentTheme('citrus')}
+                  className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${currentTheme === 'citrus' ? 'bg-gradient-to-r from-emerald-500/30 to-orange-500/30 text-emerald-200 border border-emerald-400/40 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  title="Emerald & Orange Flagship Hackathon Theme"
                 >
-                  Obsidian
+                  <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-orange-400" />
+                  <span>Citrus</span>
                 </button>
                 <button
                   type="button"
@@ -228,9 +231,16 @@ export default function SpatialCommandDashboard({
                 <button
                   type="button"
                   onClick={() => setCurrentTheme('solar')}
-                  className={`px-2 py-1 rounded-lg transition-all ${currentTheme === 'solar' ? 'bg-amber-500/30 text-amber-300 border border-amber-400/30' : 'text-slate-400 hover:text-white'}`}
+                  className={`px-2 py-1 rounded-lg transition-all ${currentTheme === 'solar' ? 'bg-orange-500/30 text-orange-300 border border-orange-400/30' : 'text-slate-400 hover:text-white'}`}
                 >
                   Solar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentTheme('obsidian')}
+                  className={`px-2 py-1 rounded-lg transition-all ${currentTheme === 'obsidian' ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-400/30' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Obsidian
                 </button>
               </div>
 
@@ -313,9 +323,9 @@ export default function SpatialCommandDashboard({
               {/* Glowing Playhead Pointer */}
               <div 
                 style={{ left: `${((timelineHour - 8) / 14) * 100}%` }}
-                className="absolute -top-1 -translate-x-1/2 w-4 h-9 rounded-md bg-cyan-400 shadow-[0_0_15px_#06b6d4] border-2 border-white pointer-events-none z-10 transition-all duration-75 flex items-center justify-center"
+                className="absolute -top-1 -translate-x-1/2 w-4 h-9 rounded-md bg-gradient-to-b from-orange-400 to-amber-500 shadow-[0_0_18px_#f97316] border-2 border-white pointer-events-none z-10 transition-all duration-75 flex items-center justify-center"
               >
-                <div className="w-0.5 h-3 bg-slate-900 rounded-full" />
+                <div className="w-0.5 h-3 bg-slate-950 rounded-full" />
               </div>
             </div>
 
@@ -530,12 +540,12 @@ export default function SpatialCommandDashboard({
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 280 120">
                   <defs>
                     <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.45" />
-                      <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="#f97316" stopOpacity="0.45" />
+                      <stop offset="100%" stopColor="#f97316" stopOpacity="0.0" />
                     </linearGradient>
                     <linearGradient id="energyGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
@@ -544,43 +554,43 @@ export default function SpatialCommandDashboard({
                   <line x1="0" y1="70" x2="280" y2="70" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
                   <line x1="0" y1="110" x2="280" y2="110" stroke="rgba(255,255,255,0.06)" />
 
-                  {/* Shaded Area for Velocity Curve */}
+                  {/* Shaded Area for Velocity Curve (Orange) */}
                   <path
                     d="M 10 100 Q 60 20, 110 35 T 200 65 T 270 95 L 270 115 L 10 115 Z"
                     fill="url(#velocityGrad)"
                   />
-                  {/* Spline 1: Task Velocity (Cyan) */}
+                  {/* Spline 1: Task Velocity (Vibrant Cyber Orange) */}
                   <path
                     d="M 10 100 Q 60 20, 110 35 T 200 65 T 270 95"
                     fill="none"
-                    stroke="#06b6d4"
+                    stroke="#f97316"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                   />
 
-                  {/* Spline 2: Biological Energy Curve (Violet) */}
+                  {/* Spline 2: Biological Energy Curve (Emerald Green) */}
                   <path
                     d="M 10 75 Q 70 25, 120 45 T 190 85 T 270 105"
                     fill="none"
-                    stroke="#a855f7"
+                    stroke="#10b981"
                     strokeWidth="2"
                     strokeDasharray="4 2"
                     strokeLinecap="round"
                   />
 
                   {/* Active Hour Marker at 11:30 AM */}
-                  <circle cx="110" cy="35" r="4" fill="#06b6d4" stroke="#ffffff" strokeWidth="2" />
+                  <circle cx="110" cy="35" r="4" fill="#f97316" stroke="#ffffff" strokeWidth="2" />
                 </svg>
 
                 {/* Chart Legend */}
                 <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                    <span>Velocity Spline</span>
+                    <span className="w-2 h-2 rounded-full bg-orange-500 shadow-sm" />
+                    <span className="text-orange-300 font-semibold">Velocity Spline</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-purple-400" />
-                    <span>Energy Curve</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm" />
+                    <span className="text-emerald-300 font-semibold">Energy Curve</span>
                   </div>
                 </div>
               </div>

@@ -411,7 +411,11 @@ export default function AgentChat({ currentUser, onNavigateTab }) {
           <button
             key={pIdx}
             onClick={() => handleSend(prompt)}
-            className="px-3 py-1 rounded-full text-xs whitespace-nowrap bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white transition-colors"
+            className={`px-3 py-1 rounded-full text-xs whitespace-nowrap bg-slate-800/80 border transition-all ${
+              pIdx % 2 === 0
+                ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-400'
+                : 'border-orange-500/30 text-orange-300 hover:bg-orange-500/15 hover:border-orange-400'
+            }`}
           >
             {prompt}
           </button>
@@ -484,10 +488,10 @@ export default function AgentChat({ currentUser, onNavigateTab }) {
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="px-4 py-2 bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-400 hover:to-sky-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-lg flex items-center gap-1.5 text-xs shadow-md transition-all"
+          className="px-4 py-2 bg-gradient-to-r from-emerald-500 via-amber-500 to-orange-500 hover:from-emerald-400 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold rounded-lg flex items-center gap-1.5 text-xs shadow-md shadow-orange-500/20 transition-all"
         >
           <span>Send</span>
-          <Send className="w-3.5 h-3.5" />
+          <Send className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
         </button>
       </form>
 

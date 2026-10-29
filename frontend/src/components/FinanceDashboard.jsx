@@ -107,27 +107,31 @@ export default function FinanceDashboard({ onNavigateTab }) {
       {/* 6 Core KPI Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         
-        {/* KPI 1: Pending Invoices */}
-        <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+        {/* KPI 1: Pending Invoices (Cyber Orange) */}
+        <div className="bg-gradient-to-b from-orange-950/40 to-slate-900/90 border border-orange-500/40 rounded-xl p-3.5 shadow-lg shadow-orange-500/10 hover-glow-orange transition-all">
+          <div className="flex items-center justify-between text-orange-300 text-xs mb-1 font-mono">
             <span>Pending Invoices</span>
-            <Clock className="w-4 h-4 text-sky-400" />
+            <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400">
+              <Clock className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-lg font-bold text-white">
+          <div className="text-lg font-black text-white font-mono">
             ₹{kpis.pending_invoices_amount?.toLocaleString('en-IN') || '0'}
           </div>
-          <div className="text-[11px] text-sky-400 font-medium mt-0.5">
+          <div className="text-[11px] text-orange-300 font-medium mt-0.5">
             {kpis.pending_invoices_count || 0} invoices awaiting review
           </div>
         </div>
 
-        {/* KPI 2: Overdue Payments */}
-        <div className="bg-slate-800/90 border border-rose-500/40 rounded-xl p-3.5 shadow-sm bg-gradient-to-b from-rose-950/20 to-transparent">
-          <div className="flex items-center justify-between text-rose-300 text-xs mb-1">
+        {/* KPI 2: Overdue Payments (Sunset Crimson / Rose) */}
+        <div className="bg-gradient-to-b from-rose-950/40 to-slate-900/90 border border-rose-500/50 rounded-xl p-3.5 shadow-lg shadow-rose-500/10 transition-all">
+          <div className="flex items-center justify-between text-rose-300 text-xs mb-1 font-mono">
             <span>Overdue Payments</span>
-            <AlertCircle className="w-4 h-4 text-rose-400" />
+            <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400">
+              <AlertCircle className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-lg font-bold text-rose-200">
+          <div className="text-lg font-black text-rose-100 font-mono">
             ₹{kpis.overdue_payments_amount?.toLocaleString('en-IN') || '0'}
           </div>
           <div className="text-[11px] text-rose-400 font-semibold mt-0.5">
@@ -135,55 +139,63 @@ export default function FinanceDashboard({ onNavigateTab }) {
           </div>
         </div>
 
-        {/* KPI 3: Reimbursement Requests */}
-        <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+        {/* KPI 3: Reimbursement Requests (Luminous Emerald Green) */}
+        <div className="bg-gradient-to-b from-emerald-950/40 to-slate-900/90 border border-emerald-500/40 rounded-xl p-3.5 shadow-lg shadow-emerald-500/10 hover-glow-emerald transition-all">
+          <div className="flex items-center justify-between text-emerald-300 text-xs mb-1 font-mono">
             <span>Reimbursements</span>
-            <FileCheck className="w-4 h-4 text-teal-400" />
+            <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+              <FileCheck className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-lg font-bold text-white">
+          <div className="text-lg font-black text-white font-mono">
             ₹{kpis.reimbursement_requests_amount?.toLocaleString('en-IN') || '0'}
           </div>
-          <div className="text-[11px] text-teal-400 font-medium mt-0.5">
+          <div className="text-[11px] text-emerald-300 font-medium mt-0.5">
             {kpis.reimbursement_requests_count || 0} claims in pipeline
           </div>
         </div>
 
-        {/* KPI 4: Flagged Duplicate Invoices */}
-        <div className="bg-slate-800/90 border border-amber-500/40 rounded-xl p-3.5 shadow-sm bg-gradient-to-b from-amber-950/20 to-transparent">
-          <div className="flex items-center justify-between text-amber-300 text-xs mb-1">
+        {/* KPI 4: Flagged Duplicate Invoices (Fiery Tangerine & Amber) */}
+        <div className="bg-gradient-to-b from-amber-950/40 to-slate-900/90 border border-amber-500/50 rounded-xl p-3.5 shadow-lg shadow-amber-500/10 hover-glow-orange transition-all">
+          <div className="flex items-center justify-between text-amber-300 text-xs mb-1 font-mono">
             <span>Duplicate Invoices</span>
-            <Copy className="w-4 h-4 text-amber-400" />
+            <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400">
+              <Copy className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-amber-200">
+          <div className="text-2xl font-black text-amber-200 font-mono">
             {kpis.flagged_duplicates_count || 0}
           </div>
-          <div className="text-[11px] text-amber-400 font-medium mt-0.5">
+          <div className="text-[11px] text-amber-400 font-semibold mt-0.5">
             Pairs blocked from payout
           </div>
         </div>
 
-        {/* KPI 5: Approval Delays > 2d */}
-        <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+        {/* KPI 5: Approval Delays > 2d (Royal Violet / Fuchsia) */}
+        <div className="bg-gradient-to-b from-violet-950/40 to-slate-900/90 border border-violet-500/40 rounded-xl p-3.5 shadow-lg shadow-violet-500/10 transition-all">
+          <div className="flex items-center justify-between text-violet-300 text-xs mb-1 font-mono">
             <span>SLA Delays (&gt;2d)</span>
-            <Clock className="w-4 h-4 text-purple-400" />
+            <div className="p-1.5 rounded-lg bg-violet-500/20 text-violet-400">
+              <Clock className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-purple-200">
+          <div className="text-2xl font-black text-violet-200 font-mono">
             {kpis.approval_delays_count || 0}
           </div>
-          <div className="text-[11px] text-purple-400 font-medium mt-0.5">
+          <div className="text-[11px] text-violet-400 font-medium mt-0.5">
             Pending manager review
           </div>
         </div>
 
-        {/* KPI 6: Open Escalations */}
-        <div className="bg-slate-800/90 border border-rose-500/50 rounded-xl p-3.5 shadow-sm bg-gradient-to-b from-rose-950/30 to-transparent">
-          <div className="flex items-center justify-between text-rose-300 text-xs mb-1">
+        {/* KPI 6: Open Escalations (Sunset Coral / Amber) */}
+        <div className="bg-gradient-to-b from-rose-950/40 via-amber-950/20 to-slate-900/90 border border-rose-500/50 rounded-xl p-3.5 shadow-lg shadow-rose-500/10 transition-all">
+          <div className="flex items-center justify-between text-rose-300 text-xs mb-1 font-mono">
             <span>Open Escalations</span>
-            <AlertTriangle className="w-4 h-4 text-rose-400" />
+            <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-rose-200">
+          <div className="text-2xl font-black text-rose-200 font-mono">
             {kpis.open_escalations_count || 0}
           </div>
           <div className="text-[11px] text-rose-400 font-semibold mt-0.5">

@@ -129,14 +129,14 @@ export default function ApprovalsEscalationsView({ currentUser }) {
       {/* Header & Sub-Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/90 border border-slate-700/80 rounded-xl p-3 shadow-sm">
         
-        {/* Sub-Tabs */}
+        {/* Sub-Tabs (Orange & Green) */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveSubTab('approvals')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeSubTab === 'approvals'
-                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-orange-500/25 text-orange-300 border border-orange-500/50 shadow-md shadow-orange-500/20'
+                : 'text-slate-400 hover:text-orange-300 hover:bg-orange-500/10'
             }`}
           >
             <CheckSquare className="w-3.5 h-3.5" />
@@ -144,10 +144,10 @@ export default function ApprovalsEscalationsView({ currentUser }) {
           </button>
           <button
             onClick={() => setActiveSubTab('escalations')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeSubTab === 'escalations'
-                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-md shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10'
             }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />

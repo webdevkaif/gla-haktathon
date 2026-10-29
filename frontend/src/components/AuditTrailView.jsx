@@ -110,9 +110,9 @@ export default function AuditTrailView() {
         <button
           onClick={handleManualVerify}
           disabled={isVerifying}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-all disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-orange-500/20 hover:from-emerald-500/30 hover:to-orange-500/30 text-xs font-bold text-emerald-300 border border-emerald-500/40 shadow-sm transition-all disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-teal-400 ${isVerifying ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 text-orange-400 ${isVerifying ? 'animate-spin' : ''}`} />
           <span>{isVerifying ? "Verifying SHA-256..." : "Re-Verify Chain"}</span>
         </button>
       </div>

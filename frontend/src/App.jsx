@@ -29,8 +29,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(DEMO_USERS_MAP[currentUserId] || DEMO_USERS_MAP.emp_john);
   const [toast, setToast] = useState(null);
   
-  // Ambient Mesh Themes: obsidian | emerald | solar
-  const [currentTheme, setCurrentTheme] = useState('obsidian');
+  // Ambient Mesh Themes: citrus (Orange & Green flagship) | obsidian | emerald | solar
+  const [currentTheme, setCurrentTheme] = useState('citrus');
 
   // Auto-acquire JWT token on initial load
   useEffect(() => {
@@ -80,30 +80,36 @@ export default function App() {
 
   // Ambient mesh gradient background styles
   const themeBgClasses = {
-    obsidian: 'bg-[#07090E]',
-    emerald: 'bg-[#05100B]',
-    solar: 'bg-[#120907]'
+    citrus: 'bg-[#060a08]',
+    emerald: 'bg-[#040e09]',
+    solar: 'bg-[#120805]',
+    obsidian: 'bg-[#07090E]'
   };
 
   const themeOrbs = {
+    citrus: {
+      orb1: 'bg-emerald-500/25',
+      orb2: 'bg-orange-500/25',
+      orb3: 'bg-amber-400/20'
+    },
+    emerald: {
+      orb1: 'bg-emerald-600/20',
+      orb2: 'bg-teal-500/20',
+      orb3: 'bg-green-500/15'
+    },
+    solar: {
+      orb1: 'bg-orange-600/20',
+      orb2: 'bg-amber-500/20',
+      orb3: 'bg-rose-600/15'
+    },
     obsidian: {
       orb1: 'bg-indigo-600/15',
       orb2: 'bg-cyan-500/15',
       orb3: 'bg-violet-600/15'
-    },
-    emerald: {
-      orb1: 'bg-emerald-600/15',
-      orb2: 'bg-teal-500/15',
-      orb3: 'bg-cyan-600/15'
-    },
-    solar: {
-      orb1: 'bg-amber-600/15',
-      orb2: 'bg-rose-600/15',
-      orb3: 'bg-purple-600/15'
     }
   };
 
-  const activeOrbs = themeOrbs[currentTheme] || themeOrbs.obsidian;
+  const activeOrbs = themeOrbs[currentTheme] || themeOrbs.citrus;
 
   return (
     <div className={`min-h-screen ${themeBgClasses[currentTheme] || 'bg-[#07090E]'} text-slate-100 flex flex-col font-sans relative transition-colors duration-700 selection:bg-cyan-500 selection:text-white`}>

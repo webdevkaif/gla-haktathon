@@ -66,13 +66,15 @@ export default function PoliciesView() {
 
       {/* Category Pills */}
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1">
-        {categories.map((cat) => (
+        {categories.map((cat, idx) => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
               selectedCategory === cat
-                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50 shadow-sm'
+                ? idx % 2 === 0
+                  ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-md shadow-emerald-500/20'
+                  : 'bg-orange-500/25 text-orange-300 border border-orange-500/50 shadow-md shadow-orange-500/20'
                 : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700/60'
             }`}
           >

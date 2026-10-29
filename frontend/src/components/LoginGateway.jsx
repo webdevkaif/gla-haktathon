@@ -62,20 +62,80 @@ export default function LoginGateway({ onLoginSuccess, currentTheme, setCurrentT
       isTransitioning ? 'scale-105 filter blur-sm opacity-0' : 'scale-100 opacity-100'
     }`}>
       
-      {/* Top Header Floating Brand Pill */}
-      <div className="absolute top-6 left-6 z-20 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl glass-tier-2 flex items-center justify-center shadow-lg shadow-cyan-500/10 border border-white/20">
-          <Sparkles className="w-5 h-5 text-cyan-400 animate-pulse" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold tracking-tight text-white text-base">Expense Pilot</span>
-            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-              Spatial OS v2.4
-            </span>
+      {/* Top Header Floating Brand Pill & Theme Selector */}
+      <div className="absolute top-6 left-6 right-6 z-20 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 via-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-white/20">
+            <Sparkles className="w-5 h-5 text-slate-950 font-bold" />
           </div>
-          <p className="text-xs text-slate-400">Next-Gen Autonomous Finance & AI Workspace</p>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold tracking-tight text-white text-base">Expense Pilot</span>
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                Spatial OS v2.4
+              </span>
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/30">
+                Orange & Green
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Next-Gen Autonomous Finance & AI Workspace</p>
+          </div>
         </div>
+
+        {/* Quick Theme Selector Pills */}
+        {setCurrentTheme && (
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl glass-tier-2 border border-white/10">
+            <button
+              type="button"
+              onClick={() => setCurrentTheme('citrus')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-mono transition-all flex items-center gap-1.5 ${
+                currentTheme === 'citrus'
+                  ? 'bg-gradient-to-r from-emerald-500/30 to-orange-500/30 text-emerald-200 border border-emerald-400/50 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Emerald & Cyber Orange (Flagship Hackathon Palette)"
+            >
+              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-400 to-orange-400" />
+              <span>Citrus (OG)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentTheme('emerald')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-mono transition-all flex items-center gap-1.5 ${
+                currentTheme === 'emerald'
+                  ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/50 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Emerald</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentTheme('solar')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-mono transition-all flex items-center gap-1.5 ${
+                currentTheme === 'solar'
+                  ? 'bg-orange-500/30 text-orange-200 border border-orange-400/50 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-orange-400" />
+              <span>Solar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentTheme('obsidian')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-mono transition-all flex items-center gap-1.5 ${
+                currentTheme === 'obsidian'
+                  ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/50 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-indigo-400" />
+              <span>Obsidian</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Split-Glass Grid Container */}
@@ -203,12 +263,12 @@ export default function LoginGateway({ onLoginSuccess, currentTheme, setCurrentT
                   type="button"
                   onClick={handleBiometricAuth}
                   disabled={biometricScanning}
-                  className="w-full py-3.5 px-4 rounded-2xl glass-tier-2 border border-white/20 hover:border-cyan-400/50 hover:bg-white/10 text-white font-medium text-xs flex items-center justify-center gap-2.5 transition-all duration-300 relative group overflow-hidden"
+                  className="w-full py-3.5 px-4 rounded-2xl glass-tier-2 border border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-500/10 text-white font-medium text-xs flex items-center justify-center gap-2.5 transition-all duration-300 relative group overflow-hidden"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Fingerprint className={`w-4 h-4 text-cyan-400 ${biometricScanning ? 'animate-spin' : 'animate-pulse'}`} />
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Fingerprint className={`w-4 h-4 text-emerald-400 ${biometricScanning ? 'animate-spin' : 'animate-pulse'}`} />
                   </div>
-                  <span className="font-mono">
+                  <span className="font-mono text-emerald-200">
                     {biometricScanning ? 'Verifying Passkey...' : 'Biometric / Passkey'}
                   </span>
                 </button>
@@ -217,10 +277,10 @@ export default function LoginGateway({ onLoginSuccess, currentTheme, setCurrentT
                 <button
                   type="button"
                   onClick={() => handleInitialize()}
-                  className="w-full py-3.5 px-4 rounded-2xl glass-btn-primary text-white font-semibold text-xs flex items-center justify-center gap-2 group shadow-xl shadow-cyan-500/25"
+                  className="w-full py-3.5 px-4 rounded-2xl glass-btn-citrus text-slate-950 font-bold text-xs flex items-center justify-center gap-2 group shadow-xl shadow-orange-500/30"
                 >
                   <span>Initialize Workspace</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-slate-950 font-bold" />
                 </button>
               </div>
 

@@ -72,32 +72,81 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
   const currentUser = DEMO_USERS.find(u => u.id === selectedUserId) || DEMO_USERS[0];
 
   const navItems = [
-    { id: 'spatial', label: 'Spatial OS', icon: Compass },
-    { id: 'chat', label: 'Agent Chat', icon: Bot },
-    { id: 'dashboard', label: 'Finance Dashboard', icon: BarChart3 },
-    { id: 'claims_invoices', label: 'Claims & Invoices', icon: FileText },
-    { id: 'approvals_escalations', label: 'Approvals & Escalations', icon: CheckSquare },
-    { id: 'audit', label: 'Audit Trail', icon: ShieldCheck },
-    { id: 'policies', label: 'Policies', icon: BookOpen },
+    { 
+      id: 'spatial', 
+      label: 'Spatial OS', 
+      icon: Compass,
+      activeClass: 'bg-gradient-to-r from-emerald-500/20 via-amber-500/20 to-orange-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)]',
+      activeIcon: 'text-emerald-400',
+      hoverClass: 'hover:text-emerald-300 hover:bg-emerald-500/10'
+    },
+    { 
+      id: 'chat', 
+      label: 'Agent Chat', 
+      icon: Bot,
+      activeClass: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)]',
+      activeIcon: 'text-emerald-400',
+      hoverClass: 'hover:text-emerald-300 hover:bg-emerald-500/10'
+    },
+    { 
+      id: 'dashboard', 
+      label: 'Finance Dashboard', 
+      icon: BarChart3,
+      activeClass: 'bg-orange-500/20 border-orange-500/50 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.25)]',
+      activeIcon: 'text-orange-400',
+      hoverClass: 'hover:text-orange-300 hover:bg-orange-500/10'
+    },
+    { 
+      id: 'claims_invoices', 
+      label: 'Claims & Invoices', 
+      icon: FileText,
+      activeClass: 'bg-teal-500/20 border-teal-500/50 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.25)]',
+      activeIcon: 'text-teal-400',
+      hoverClass: 'hover:text-teal-300 hover:bg-teal-500/10'
+    },
+    { 
+      id: 'approvals_escalations', 
+      label: 'Approvals & Escalations', 
+      icon: CheckSquare,
+      activeClass: 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)]',
+      activeIcon: 'text-amber-400',
+      hoverClass: 'hover:text-amber-300 hover:bg-amber-500/10'
+    },
+    { 
+      id: 'audit', 
+      label: 'Audit Trail', 
+      icon: ShieldCheck,
+      activeClass: 'bg-green-500/20 border-green-500/50 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.25)]',
+      activeIcon: 'text-green-400',
+      hoverClass: 'hover:text-green-300 hover:bg-green-500/10'
+    },
+    { 
+      id: 'policies', 
+      label: 'Policies', 
+      icon: BookOpen,
+      activeClass: 'bg-orange-600/20 border-orange-500/50 text-orange-200 shadow-[0_0_15px_rgba(234,88,12,0.25)]',
+      activeIcon: 'text-orange-400',
+      hoverClass: 'hover:text-orange-300 hover:bg-orange-500/10'
+    },
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0f172a]/95 backdrop-blur-md border-b border-slate-700/80 shadow-lg">
+    <header className="sticky top-0 z-50 bg-[#070b09]/95 backdrop-blur-md border-b border-emerald-950/80 shadow-2xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
           {/* Logo & Subtitle */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-sky-500 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-teal-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-orange-500/25 border border-white/20">
               <Building2 className="w-6 h-6 text-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-extrabold tracking-tight text-white">Expense Pilot</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">
                   DEV-C04
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/40 animate-pulse">
                   SAMPLE DATA
                 </span>
               </div>
@@ -113,16 +162,16 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
             {/* Quick Demo Accounts Modal Trigger */}
             <button
               onClick={() => setIsLoginModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/40 text-teal-300 hover:text-white transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-500/15 to-orange-500/15 hover:from-emerald-500/25 hover:to-orange-500/25 border border-emerald-500/40 text-emerald-300 hover:text-white transition-all shadow-sm"
               title="Open Demo Accounts and Credentials for Hackathon Judges"
             >
-              <KeyRound className="w-3.5 h-3.5 text-teal-400" />
+              <KeyRound className="w-3.5 h-3.5 text-orange-400" />
               <span className="hidden sm:inline">Demo Accounts</span>
             </button>
 
             {/* Quick Role Switcher */}
-            <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1.5 shadow-sm">
-              <User className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 rounded-lg px-2.5 py-1.5 shadow-sm">
+              <User className="w-4 h-4 text-emerald-400" />
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 leading-none">Active User</span>
                 <select
@@ -148,9 +197,9 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
               onClick={handleReset}
               disabled={isSeeding}
               title="Reset sample enterprise data"
-              className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-colors"
+              className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-colors"
             >
-              <RotateCcw className={`w-4 h-4 ${isSeeding ? 'animate-spin text-teal-400' : ''}`} />
+              <RotateCcw className={`w-4 h-4 ${isSeeding ? 'animate-spin text-orange-400' : ''}`} />
             </button>
 
             {/* Lock Session & Return to Gateway */}
@@ -158,7 +207,7 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
               <button
                 onClick={onLockSession}
                 title="Lock Session and return to Glassmorphic Gateway"
-                className="p-2 text-rose-400 hover:text-rose-200 hover:bg-rose-500/20 rounded-lg border border-rose-500/30 transition-colors"
+                className="p-2 text-orange-400 hover:text-orange-200 hover:bg-orange-500/20 rounded-lg border border-orange-500/30 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -167,7 +216,7 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex space-x-1 sm:space-x-2 border-t border-slate-800 pt-2 pb-2 overflow-x-auto scrollbar-none">
+        <div className="flex space-x-1 sm:space-x-2 border-t border-slate-800/80 pt-2 pb-2 overflow-x-auto scrollbar-none">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -175,13 +224,13 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all border ${
                   isActive
-                    ? 'bg-gradient-to-r from-teal-500/20 to-sky-500/20 border border-teal-500/50 text-teal-300 font-semibold shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+                    ? `${item.activeClass} font-semibold`
+                    : `text-slate-400 ${item.hoverClass} border-transparent`
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-teal-400' : 'text-slate-400'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? item.activeIcon : 'text-slate-400'}`} />
                 <span>{item.label}</span>
               </button>
             );
