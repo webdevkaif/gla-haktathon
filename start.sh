@@ -1,5 +1,5 @@
 #!/bin/bash
-# ExpensePilot AI All-in-One Startup Script
+# Expense Pilot (Meridian DEV-C04) All-in-One Startup Script
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
@@ -11,7 +11,7 @@ else
 fi
 
 echo "============================================================="
-echo "🚀 Starting ExpensePilot AI Full-Stack Platform..."
+echo "🚀 Starting Expense Pilot (Meridian DEV-C04) Full Platform..."
 echo "============================================================="
 echo "📡 Python runtime : $PYTHON_CMD"
 echo "🌐 Frontend UI   : http://127.0.0.1:5173"

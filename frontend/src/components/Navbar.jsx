@@ -1,161 +1,124 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
-  Sparkles, 
-  PlusCircle, 
-  Bell, 
-  RotateCcw, 
-  LayoutDashboard, 
-  Receipt, 
-  TrendingUp, 
-  Sliders, 
-  Target, 
-  Bot,
-  FileText,
-  Smartphone 
+  Bot, 
+  BarChart3, 
+  FileText, 
+  CheckSquare, 
+  ShieldCheck, 
+  BookOpen, 
+  User, 
+  RotateCcw,
+  Sparkles,
+  Building2
 } from 'lucide-react';
+import { getCurrentUserId, setCurrentUserId } from '../api';
 
-import GhibliButton from './GhibliButton';
+const DEMO_USERS = [
+  { id: 'emp_john', name: 'John Doe', role: 'Employee', grade: 'L2', dept: 'Sales', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  { id: 'ven_acme', name: 'Acme Supplies', role: 'Vendor', grade: 'Ext', dept: 'Procurement', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+  { id: 'mgr_sarah', name: 'Sarah Connor', role: 'Manager', grade: 'L4', dept: 'Sales', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  { id: 'fin_alex', name: 'Alex Morgan', role: 'Finance Controller', grade: 'L4', dept: 'Finance', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+];
 
-export default function Navbar({ 
-  activeTab, 
-  setActiveTab, 
-  onOpenAddExpense, 
-  onToggleChat, 
-  onToggleAlerts, 
-  onTogglePhoneAlerts,
-  unreadAlertCount, 
-  onSeedDemo, 
-  isSeeding 
-}) {
+export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetData }) {
+  const [selectedUserId, setSelectedUserId] = useState(getCurrentUserId());
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const handleRoleSelect = (e) => {
+    const newId = e.target.value;
+    setSelectedUserId(newId);
+    setCurrentUserId(newId);
+    if (onUserChange) onUserChange(newId);
+  };
+
+  const handleReset = async () => {
+    if (window.confirm("Reset and re-seed Meridian sample corporate data?")) {
+      setIsSeeding(true);
+      try {
+        if (onResetData) await onResetData();
+      } finally {
+        setIsSeeding(false);
+      }
+    }
+  };
+
+  const currentUser = DEMO_USERS.find(u => u.id === selectedUserId) || DEMO_USERS[0];
+
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'phone', label: 'Phone Alerts', icon: Smartphone },
-    { id: 'invoices', label: 'Invoices & Roadmap', icon: FileText },
-    { id: 'transactions', label: 'Transactions', icon: Receipt },
-    { id: 'forecast', label: 'Forecast & Anomalies', icon: TrendingUp },
-    { id: 'simulator', label: 'What-If Simulator', icon: Sliders },
-    { id: 'goals', label: 'Savings Goals', icon: Target },
+    { id: 'chat', label: 'Agent Chat', icon: Bot },
+    { id: 'dashboard', label: 'Finance Dashboard', icon: BarChart3 },
+    { id: 'claims_invoices', label: 'Claims & Invoices', icon: FileText },
+    { id: 'approvals_escalations', label: 'Approvals & Escalations', icon: CheckSquare },
+    { id: 'audit', label: 'Audit Trail', icon: ShieldCheck },
+    { id: 'policies', label: 'Policies', icon: BookOpen },
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full glass-panel-deep border-b border-white/[0.08] bg-[#070d1d]/75 backdrop-blur-2xl">
+    <header className="sticky top-0 z-50 bg-[#0f172a]/95 backdrop-blur-md border-b border-slate-700/80 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
-          {/* Logo & Agent Status with Frosted Glow */}
+          {/* Logo & Subtitle */}
           <div className="flex items-center gap-3">
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500/90 to-blue-600/90 shadow-[0_0_20px_rgba(6,182,212,0.4)] border border-white/30 backdrop-blur-xl">
-              <Sparkles className="w-5 h-5 text-white animate-pulse" />
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-slate-950"></span>
-              </span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-sky-500 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-teal-500/20">
+              <Building2 className="w-6 h-6 text-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-cyan-300 bg-clip-text text-transparent drop-shadow-sm">
-                  ExpensePilot AI
+                <span className="text-lg font-extrabold tracking-tight text-white">Expense Pilot</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30">
+                  DEV-C04
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]">
-                  Autonomous
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse">
+                  SAMPLE DATA
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">Observe → Analyze → Decide → Act</p>
+              <p className="text-xs text-slate-400 hidden sm:block">
+                Expense & Invoice Query Agent — Meridian Finance & Procurement
+              </p>
             </div>
           </div>
 
-          {/* Desktop Frosted Glass Navigation Pill */}
-          <nav className="hidden md:flex items-center gap-1.5 bg-white/[0.04] p-1.5 rounded-2xl border border-white/[0.08] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)]">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  id={`nav-tab-${item.id}`}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-cyan-500/90 to-blue-600/90 text-white shadow-[0_4px_16px_rgba(6,182,212,0.35),inset_0_1px_0_0_rgba(255,255,255,0.4)] border border-cyan-300/40'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
-                  }`}
+          {/* Right Actions: Role Switcher & Reset */}
+          <div className="flex items-center gap-3">
+            
+            {/* Role Switcher */}
+            <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1.5 shadow-sm">
+              <User className="w-4 h-4 text-slate-400" />
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 leading-none">Active Role</span>
+                <select
+                  value={selectedUserId}
+                  onChange={handleRoleSelect}
+                  aria-label="Active Demo Role"
+                  className="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer pr-1"
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+                  {DEMO_USERS.map((u) => (
+                    <option key={u.id} value={u.id} className="bg-slate-900 text-slate-200">
+                      {u.name} ({u.role} - {u.dept})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ml-1 hidden md:inline-block ${currentUser.badge}`}>
+                {currentUser.role}
+              </span>
+            </div>
 
-          {/* Right Frosted Action Buttons */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Demo Seed */}
+            {/* Reset Seed Button */}
             <button
-              id="btn-seed-demo"
-              onClick={onSeedDemo}
+              onClick={handleReset}
               disabled={isSeeding}
-              title="Reset & Load 25+ realistic demo transactions for judging"
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold glass-btn text-cyan-300 border border-cyan-500/25 hover:border-cyan-400/50"
+              title="Reset sample enterprise data"
+              className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-colors"
             >
-              <RotateCcw className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin' : ''}`} />
-              <span>{isSeeding ? 'Seeding...' : 'Load Demo Data'}</span>
+              <RotateCcw className={`w-4 h-4 ${isSeeding ? 'animate-spin text-teal-400' : ''}`} />
             </button>
-
-            {/* Phone Link & Alerts Button */}
-            <button
-              id="btn-toggle-phone"
-              onClick={onTogglePhoneAlerts}
-              className="relative p-2.5 rounded-xl glass-btn text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.25)] transition-all"
-              title="Pair Phone Number & Mobile Alerts (SMS/WhatsApp)"
-            >
-              <Smartphone className="w-4 h-4" />
-            </button>
-
-            {/* Notification Bell with Glass Glow */}
-            <button
-              id="btn-toggle-alerts"
-              onClick={onToggleAlerts}
-              className="relative p-2.5 rounded-xl glass-btn text-slate-300 hover:text-white border border-white/[0.1] hover:border-white/25 transition-all"
-              title="Active Spending Alerts"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadAlertCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-[0_0_12px_rgba(244,63,94,0.6)] border border-white/40">
-                  {unreadAlertCount}
-                </span>
-              )}
-            </button>
-
-            {/* Add Expense Button (Studio Ghibli Animated Button) */}
-            <GhibliButton
-              onClick={onOpenAddExpense}
-              variant="forest"
-              icon={PlusCircle}
-              showSprite={true}
-              spritePosition="right"
-              className="py-1.5 px-3 text-xs"
-              title="Add New Expense (Studio Ghibli Animated)"
-            >
-              <span className="hidden sm:inline">Add Expense</span>
-            </GhibliButton>
-
-            {/* AI Agent Chat Toggle (Studio Ghibli Animated Button) */}
-            <GhibliButton
-              onClick={onToggleChat}
-              variant="sky"
-              icon={Bot}
-              showSprite={true}
-              spritePosition="right"
-              className="py-1.5 px-3 text-xs"
-              title="Chat with Pilot AI Agent"
-            >
-              <span className="hidden sm:inline">Ask Agent</span>
-            </GhibliButton>
           </div>
         </div>
 
-        {/* Mobile Navigation Tabs */}
-        <div className="flex md:hidden items-center justify-around py-2 border-t border-white/[0.08] overflow-x-auto">
+        {/* Tab Navigation */}
+        <nav className="flex space-x-1 overflow-x-auto py-2 border-t border-slate-800/60 scrollbar-none">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -163,16 +126,18 @@ export default function Navbar({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  isActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  isActive
+                    ? 'bg-gradient-to-r from-teal-500/20 to-sky-500/20 text-teal-300 border border-teal-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{item.label}</span>
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-teal-400' : 'text-slate-400'}`} />
+                {item.label}
               </button>
             );
           })}
-        </div>
+        </nav>
       </div>
     </header>
   );

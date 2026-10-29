@@ -1,35 +1,65 @@
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config import settings
 from backend.app.database import init_db, close_db, get_database
-from backend.app.routers import expenses, budgets, analytics, goals, agent, invoices, notifications
-from backend.app.services.seed_data import seed_demo_data
+from backend.app.routers import (
+    users, claims, invoices, approvals, escalations,
+    audit, policies, dashboard, agent, notifications,
+    expenses, budgets, analytics, goals
+)
+from backend.app.services.seed_data import seed_enterprise_data
+from backend.app.services.workflow import check_and_send_due_reminders
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize MongoDB database client and indexes
     await init_db()
     
-    # Auto-seed demo data if expenses collection is empty
+    # Auto-seed demo enterprise data if policies or claims collection is empty
     try:
         db = get_database()
         if db is not None:
-            count = await db.expenses.count_documents({})
-            if count == 0:
-                print("[ExpensePilot AI] Initializing realistic demo financial data...")
-                await seed_demo_data(db, settings.DEFAULT_USER_ID)
-                print("[ExpensePilot AI] Ready with seed data!")
+            policy_count = await db.policies.count_documents({})
+            if policy_count == 0:
+                print("[Expense Pilot] Initializing realistic corporate enterprise data (Meridian Dev-C04)...")
+                await seed_enterprise_data(db)
+                print("[Expense Pilot] Enterprise sample data ready!")
     except Exception as e:
-        print(f"[ExpensePilot AI] Notice checking seed data: {e}")
-            
+        print(f"[Expense Pilot] Notice checking seed data: {e}")
+
+    # Start periodic reminder background worker (runs every 60s)
+    reminder_task = None
+    async def periodic_reminder_worker():
+        while True:
+            try:
+                await asyncio.sleep(60)
+                cur_db = get_database()
+                if cur_db is not None:
+                    await check_and_send_due_reminders(cur_db)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"[Expense Pilot Reminder Scheduler] {e}")
+
+    reminder_task = asyncio.create_task(periodic_reminder_worker())
+
     yield
+
+    if reminder_task:
+        reminder_task.cancel()
+        try:
+            await reminder_task
+        except asyncio.CancelledError:
+            pass
+
     await close_db()
 
 app = FastAPI(
-    title=settings.APP_NAME,
+    title="Expense Pilot API",
     version=settings.VERSION,
-    description="Autonomous Expense Management Agent API (MongoDB Atlas)",
+    description="Enterprise Expense and Invoice Query Agent for Meridian Finance & Procurement (Hackathon DEV-C04)",
     lifespan=lifespan
 )
 
@@ -42,14 +72,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
+# Enterprise Meridian Dev-C04 Routers
+app.include_router(users.router)
+app.include_router(claims.router)
+app.include_router(invoices.router)
+app.include_router(approvals.router)
+app.include_router(escalations.router)
+app.include_router(audit.router)
+app.include_router(policies.router)
+app.include_router(dashboard.router)
+app.include_router(agent.router)
+app.include_router(notifications.router)
+
+# Backwards compatible legacy endpoints
 app.include_router(expenses.router)
 app.include_router(budgets.router)
 app.include_router(analytics.router)
 app.include_router(goals.router)
-app.include_router(agent.router)
-app.include_router(invoices.router)
-app.include_router(notifications.router)
 
 @app.get("/")
 async def root():
@@ -57,7 +96,8 @@ async def root():
     db_mode = "Local Fast-Engine (MongoDB API)" if is_fallback_mode else "MongoDB Atlas"
     db_status = "local_active" if is_fallback_mode else "atlas_connected"
     return {
-        "app": settings.APP_NAME,
+        "app": "Expense Pilot",
+        "description": "Corporate Expense & Invoice Query Agent (Meridian Dev-C04)",
         "version": settings.VERSION,
         "status": "online",
         "database": db_mode,
@@ -65,23 +105,15 @@ async def root():
         "database_status": db_status,
         "currency": settings.DEFAULT_CURRENCY,
         "endpoints": [
-            "/api/expenses",
-            "/api/budgets/current",
-            "/api/analytics/monthly",
-            "/api/analytics/forecast",
-            "/api/analytics/what-if",
-            "/api/analytics/alerts",
-            "/api/goals",
+            "/api/users",
+            "/api/claims",
+            "/api/invoices",
+            "/api/approvals",
+            "/api/escalations",
+            "/api/audit",
+            "/api/audit/verify",
+            "/api/policies",
+            "/api/dashboard/summary",
             "/api/agent/chat"
         ]
-    }
-
-@app.get("/health")
-async def health():
-    from backend.app.database import is_fallback_mode
-    db_mode = "Local Fast-Engine (MongoDB API)" if is_fallback_mode else "MongoDB Atlas"
-    return {
-        "status": "ok",
-        "database": db_mode,
-        "mongodb_status": "ready"
     }

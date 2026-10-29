@@ -8,14 +8,11 @@ env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 class Settings(BaseModel):
-    APP_NAME: str = "ExpensePilot AI"
-    VERSION: str = "1.0.0"
+    APP_NAME: str = "Expense Pilot"
+    VERSION: str = "2.0.0"
     
     # MongoDB Atlas settings
-    MONGODB_URL: str = os.getenv(
-        "MONGODB_URL", 
-        "mongodb+srv://mohammadkaif999753_db_user:<db_password>@cluster0.cllnh1c.mongodb.net/?retryWrites=true&w=majority"
-    )
+    MONGODB_URL: str = os.getenv("MONGODB_URL", "")
     MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "expensepilot")
     
     # Optional LLM API Keys

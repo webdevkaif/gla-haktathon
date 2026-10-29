@@ -1,47 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
-import DashboardOverview from './components/DashboardOverview';
-import ExpenseList from './components/ExpenseList';
-import ForecastingCard from './components/ForecastingCard';
-import WhatIfSimulator from './components/WhatIfSimulator';
-import SavingsGoalPlanner from './components/SavingsGoalPlanner';
-import AddExpenseModal from './components/AddExpenseModal';
 import AgentChat from './components/AgentChat';
-import AnomalyAlerts from './components/AnomalyAlerts';
-import BudgetManager from './components/BudgetManager';
-import InvoicesRoadmapView from './components/InvoicesRoadmapView';
-import PhoneAlertsModal from './components/PhoneAlertsModal';
-import PhoneAlertsView from './components/PhoneAlertsView';
-import { 
-  fetchMonthlySummary, 
-  fetchCurrentBudget, 
-  fetchForecast, 
-  fetchExpenses, 
-  fetchAlerts, 
-  fetchGoals, 
-  seedDemoData 
-} from './api';
-import { Bot, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import FinanceDashboard from './components/FinanceDashboard';
+import ClaimsInvoicesView from './components/ClaimsInvoicesView';
+import ApprovalsEscalationsView from './components/ApprovalsEscalationsView';
+import AuditTrailView from './components/AuditTrailView';
+import PoliciesView from './components/PoliciesView';
+import { getCurrentUserId, setCurrentUserId, fetchUsers, seedEnterpriseDemoData } from './api';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+
+const DEMO_USERS_MAP = {
+  emp_john: { id: 'emp_john', name: 'John Doe', role: 'employee', grade: 'L2', dept: 'Sales' },
+  ven_acme: { id: 'ven_acme', name: 'Acme Supplies', role: 'vendor', grade: 'Ext', dept: 'Procurement' },
+  mgr_sarah: { id: 'mgr_sarah', name: 'Sarah Connor', role: 'manager', grade: 'L4', dept: 'Sales' },
+  fin_alex: { id: 'fin_alex', name: 'Alex Morgan', role: 'finance', grade: 'L4', dept: 'Finance' },
+};
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // App data state
-  const [summary, setSummary] = useState(null);
-  const [budget, setBudget] = useState(null);
-  const [forecast, setForecast] = useState(null);
-  const [expenses, setExpenses] = useState([]);
-  const [alerts, setAlerts] = useState([]);
-  const [goals, setGoals] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Modals & Drawers
-  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
-  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
-  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
+  const [activeTab, setActiveTab] = useState('chat'); // default hero view
+  const [currentUserId, setUserIdState] = useState(getCurrentUserId());
+  const [currentUser, setCurrentUser] = useState(DEMO_USERS_MAP[currentUserId] || DEMO_USERS_MAP.emp_john);
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {
@@ -49,211 +27,87 @@ export default function App() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const loadAllData = useCallback(async () => {
+  const handleUserChange = (newUserId) => {
+    setUserIdState(newUserId);
+    setCurrentUserId(newUserId);
+    const u = DEMO_USERS_MAP[newUserId] || { id: newUserId, name: newUserId, role: 'employee' };
+    setCurrentUser(u);
+    showToast(`Switched active session to: ${u.name} (${u.role.toUpperCase()})`);
+  };
+
+  const handleResetData = async () => {
     try {
-      const [sumRes, budRes, fcRes, expRes, alRes, gRes] = await Promise.all([
-        fetchMonthlySummary("2026-10"),
-        fetchCurrentBudget("2026-10"),
-        fetchForecast("2026-10"),
-        fetchExpenses({ month: "2026-10" }),
-        fetchAlerts(false),
-        fetchGoals(),
-      ]);
-
-      setSummary(sumRes);
-      setBudget(budRes);
-      setForecast(fcRes);
-      setExpenses(expRes);
-      setAlerts(alRes);
-      setGoals(gRes);
+      await seedEnterpriseDemoData();
+      showToast("Meridian sample data re-seeded successfully!");
+      // Trigger refresh by updating state
+      window.location.reload();
     } catch (err) {
-      console.error("Error loading application data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadAllData();
-  }, [loadAllData]);
-
-  const handleSeedDemo = async () => {
-    setIsSeeding(true);
-    try {
-      await seedDemoData();
-      await loadAllData();
-      showToast("Demo data loaded with 25+ realistic transactions, budget, goals, and anomalies!");
-    } catch (err) {
-      showToast("Failed to seed demo data", "error");
-    } finally {
-      setIsSeeding(false);
+      showToast("Failed to re-seed sample data", "error");
     }
   };
 
-  const unreadAlerts = alerts.filter(a => !a.is_read);
-
   return (
-    <div className="relative min-h-screen bg-[#060a14] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white overflow-hidden">
+    <div className="min-h-screen bg-[#0f172a] text-slate-100 flex flex-col font-sans">
       
-      {/* Ambient Frosted Glass Background Orbs (Mesh Glow) */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Orb 1: Cyan / Sky glow top-left */}
-        <div className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full bg-gradient-to-br from-cyan-500/25 to-blue-600/15 blur-[130px] animate-float-1"></div>
-        {/* Orb 2: Violet / Fuchsia glow top-right */}
-        <div className="absolute -top-24 -right-28 w-[600px] h-[600px] rounded-full bg-gradient-to-bl from-purple-600/25 to-pink-600/15 blur-[150px] animate-float-2"></div>
-        {/* Orb 3: Indigo / Blue center bloom */}
-        <div className="absolute top-1/3 left-1/3 w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[160px] animate-float-3"></div>
-        {/* Orb 4: Emerald / Teal glow bottom-right */}
-        <div className="absolute -bottom-36 right-10 w-[550px] h-[550px] rounded-full bg-emerald-500/20 blur-[140px] animate-float-1"></div>
-        {/* Subtle glass grid texture */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
-      </div>
+      {/* Global Navbar */}
+      <Navbar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onUserChange={handleUserChange}
+        onResetData={handleResetData}
+      />
 
-      {/* Toast Notification */}
+      {/* Global Toast */}
       {toast && (
-        <div className="fixed top-20 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl glass-panel-deep border border-cyan-500/50 text-slate-100 shadow-2xl animate-fade-in">
-          {toast.type === 'error' ? (
-            <AlertCircle className="w-5 h-5 text-rose-400" />
-          ) : (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          )}
-          <span className="text-xs font-semibold">{toast.message}</span>
+        <div className="fixed bottom-4 right-4 z-50 animate-bounce">
+          <div className={`p-3 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-2xl border ${
+            toast.type === 'success'
+              ? 'bg-emerald-950/95 text-emerald-300 border-emerald-500/50'
+              : 'bg-rose-950/95 text-rose-300 border-rose-500/50'
+          }`}>
+            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-rose-400" />}
+            <span>{toast.message}</span>
+          </div>
         </div>
       )}
 
-      {/* Top Navbar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenAddExpense={() => setIsAddExpenseOpen(true)}
-        onToggleChat={() => setIsChatOpen(prev => !prev)}
-        onToggleAlerts={() => setIsAlertsOpen(prev => !prev)}
-        onTogglePhoneAlerts={() => setIsPhoneModalOpen(prev => !prev)}
-        unreadAlertCount={unreadAlerts.length}
-        onSeedDemo={handleSeedDemo}
-        isSeeding={isSeeding}
-      />
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        {activeTab === 'chat' && (
+          <AgentChat currentUser={currentUser} onNavigateTab={setActiveTab} />
+        )}
 
-      {/* Main Content View Container */}
-      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-            <div className="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 animate-pulse">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <p className="text-sm text-slate-400">Initializing ExpensePilot Autonomous Agent...</p>
-          </div>
-        ) : (
-          <>
-            {activeTab === 'dashboard' && (
-              <DashboardOverview
-                summary={summary}
-                budget={budget}
-                forecast={forecast}
-                onNavigateTab={(tab) => setActiveTab(tab)}
-                onOpenAddExpense={() => setIsAddExpenseOpen(true)}
-                onToggleChat={() => setIsChatOpen(true)}
-                onTogglePhoneAlerts={() => setIsPhoneModalOpen(true)}
-              />
-            )}
+        {activeTab === 'dashboard' && (
+          <FinanceDashboard onNavigateTab={setActiveTab} />
+        )}
 
-            {activeTab === 'phone' && (
-              <PhoneAlertsView
-                onToggleChat={() => setIsChatOpen(true)}
-              />
-            )}
+        {activeTab === 'claims_invoices' && (
+          <ClaimsInvoicesView currentUser={currentUser} />
+        )}
 
-            {activeTab === 'invoices' && (
-              <InvoicesRoadmapView
-                onToggleChat={() => setIsChatOpen(true)}
-              />
-            )}
+        {activeTab === 'approvals_escalations' && (
+          <ApprovalsEscalationsView currentUser={currentUser} />
+        )}
 
-            {activeTab === 'transactions' && (
-              <ExpenseList
-                expenses={expenses}
-                onExpenseMutated={loadAllData}
-                onOpenAddModal={() => setIsAddExpenseOpen(true)}
-              />
-            )}
+        {activeTab === 'audit' && (
+          <AuditTrailView />
+        )}
 
-            {activeTab === 'forecast' && (
-              <ForecastingCard
-                forecast={forecast}
-                expenses={expenses}
-                onExpenseUpdated={loadAllData}
-              />
-            )}
-
-            {activeTab === 'simulator' && (
-              <WhatIfSimulator
-                summary={summary}
-              />
-            )}
-
-            {activeTab === 'goals' && (
-              <SavingsGoalPlanner
-                goals={goals}
-                onGoalsMutated={loadAllData}
-              />
-            )}
-          </>
+        {activeTab === 'policies' && (
+          <PoliciesView />
         )}
       </main>
 
-      {/* Floating Action Button for AI Chat */}
-      <button
-        id="fab-agent-chat"
-        onClick={() => setIsChatOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm shadow-xl shadow-cyan-500/30 hover:scale-105 transition-all group"
-      >
-        <div className="relative">
-          <Bot className="w-5 h-5" />
-          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-          </span>
+      {/* Corporate Footer Watermark */}
+      <footer className="border-t border-slate-800/80 py-3 text-center text-xs text-slate-400 bg-slate-950/40">
+        <div className="flex items-center justify-center gap-2">
+          <span>Expense Pilot — Corporate Finance & Procurement Agent</span>
+          <span>•</span>
+          <span className="font-mono text-teal-400 font-semibold">Hackathon DEV-C04</span>
+          <span>•</span>
+          <span className="text-amber-400 font-medium">All numbers and policies reflect sample Meridian corporate data</span>
         </div>
-        <span>Ask Pilot AI</span>
-      </button>
-
-      {/* Modals & Slide-out Drawers */}
-      <AddExpenseModal
-        isOpen={isAddExpenseOpen}
-        onClose={() => setIsAddExpenseOpen(false)}
-        onExpenseAdded={loadAllData}
-      />
-
-      <AgentChat
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        onDataMutated={loadAllData}
-      />
-
-      <AnomalyAlerts
-        isOpen={isAlertsOpen}
-        onClose={() => setIsAlertsOpen(false)}
-        alerts={alerts}
-        onAlertsMutated={loadAllData}
-      />
-
-      <BudgetManager
-        budget={budget}
-        isOpen={isBudgetModalOpen}
-        onClose={() => setIsBudgetModalOpen(false)}
-        onBudgetUpdated={loadAllData}
-      />
-
-      <PhoneAlertsModal
-        isOpen={isPhoneModalOpen}
-        onClose={() => setIsPhoneModalOpen(false)}
-      />
-
-      {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
-        <p>ExpensePilot AI — Autonomous Financial Management Agent • GLA Hackathon Edition</p>
       </footer>
-
     </div>
   );
 }

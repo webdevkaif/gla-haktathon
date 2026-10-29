@@ -1,5 +1,7 @@
+import re
 from fastapi import APIRouter, Depends
 from backend.app.database import get_db
+from backend.app.auth import get_current_user
 from backend.app.schemas import AgentChatRequest, AgentChatResponse
 from backend.app.agent.engine import process_agent_message
 
@@ -8,17 +10,18 @@ router = APIRouter(prefix="/api/agent", tags=["AI Agent"])
 @router.post("/chat", response_model=AgentChatResponse)
 async def chat_with_agent(
     payload: AgentChatRequest,
+    current_user = Depends(get_current_user),
     db = Depends(get_db)
 ):
+    active_user_id = payload.user_id or current_user.get("id") or "emp_john"
     result = await process_agent_message(
         db=db,
-        user_id=payload.user_id or "user_default",
+        user_id=active_user_id,
         message=payload.message
     )
-    reply_text = result["reply"]
+    reply_text = result.get("reply", "")
     voice_txt = result.get("voice_text")
     if not voice_txt:
-        import re
         cleaned = re.sub(r'[*_#`~]', '', reply_text)
         cleaned = re.sub(r'\[.*?\]\(.*?\)', '', cleaned)
         cleaned = re.sub(r'[•\-–—]', ' ', cleaned)
@@ -27,10 +30,10 @@ async def chat_with_agent(
 
     return AgentChatResponse(
         reply=reply_text,
+        citations=result.get("citations", []),
         tool_called=result.get("tool_called"),
         tool_result=result.get("tool_result"),
-        structured_expenses_added=result.get("structured_expenses_added"),
-        suggested_actions=result.get("suggested_actions"),
-        pdf_download_url=result.get("pdf_download_url"),
+        escalated=result.get("escalated", False),
+        suggested_actions=result.get("suggested_actions", []),
         voice_text=voice_txt
     )

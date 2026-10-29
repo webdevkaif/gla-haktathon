@@ -21,7 +21,7 @@ os.environ["PYTHONPATH"] = str(project_root) + (os.pathsep + os.environ.get("PYT
 if __name__ == "__main__":
     import uvicorn
     print("\n" + "=" * 65)
-    print("🚀 Starting ExpensePilot AI Backend on http://127.0.0.1:8000 ...")
+    print("🚀 Starting Expense Pilot Backend (Meridian DEV-C04) on http://127.0.0.1:8000 ...")
     print("=" * 65 + "\n")
     uvicorn.run(
         "backend.app.main:app",

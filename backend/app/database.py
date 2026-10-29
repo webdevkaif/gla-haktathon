@@ -44,6 +44,19 @@ async def init_db():
         print("[ExpensePilot AI] ✅ Local fallback database is active and ready!")
 
     try:
+        # Enterprise Collection Indexes
+        await db.users.create_index("id", unique=True)
+        await db.policies.create_index([("doc_name", 1), ("section_id", 1)], unique=True)
+        await db.claims.create_index("claim_no", unique=True)
+        await db.claims.create_index([("employee_id", 1), ("status", 1)])
+        await db.invoices.create_index("invoice_no")
+        await db.invoices.create_index([("vendor_id", 1), ("status", 1)])
+        await db.purchase_orders.create_index("po_no", unique=True)
+        await db.approvals.create_index([("entity_id", 1), ("approver_id", 1), ("state", 1)])
+        await db.escalations.create_index([("entity_id", 1), ("status", 1)])
+        await db.audit_log.create_index([("ts", -1), ("actor_id", 1)])
+
+        # Legacy Indexes
         await db.expenses.create_index([("user_id", 1), ("date", -1)])
         await db.expenses.create_index([("user_id", 1), ("category", 1)])
         await db.expenses.create_index([("user_id", 1), ("is_unusual", 1)])
@@ -51,7 +64,7 @@ async def init_db():
         await db.alerts.create_index([("user_id", 1), ("created_at", -1)])
         await db.saving_goals.create_index([("user_id", 1), ("created_at", -1)])
     except Exception as e:
-        print(f"[ExpensePilot AI] Index setup notice: {e}")
+        print(f"[Expense Pilot] Index setup notice: {e}")
 
 async def close_db():
     global client
