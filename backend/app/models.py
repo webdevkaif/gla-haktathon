@@ -136,9 +136,11 @@ class Claim:
         }
 
 def normalize_invoice_number(inv_no: str) -> str:
-    """Normalizes invoice numbers by lowercasing, stripping punctuation, spaces, and leading zeros."""
-    cleaned = re.sub(r'[^a-zA-Z0-9]', '', str(inv_no)).lower()
-    return cleaned.lstrip('0') or cleaned
+    """Normalizes invoice numbers by uppercasing, stripping leading zeros in numeric segments, and stripping non-alphanumerics."""
+    if not inv_no:
+        return ""
+    no_leading_zeros = re.sub(r'\d+', lambda m: str(int(m.group(0))), str(inv_no).upper())
+    return re.sub(r'[^A-Za-z0-9]', '', no_leading_zeros)
 
 class Invoice:
     @staticmethod

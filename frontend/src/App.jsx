@@ -6,14 +6,17 @@ import ClaimsInvoicesView from './components/ClaimsInvoicesView';
 import ApprovalsEscalationsView from './components/ApprovalsEscalationsView';
 import AuditTrailView from './components/AuditTrailView';
 import PoliciesView from './components/PoliciesView';
-import { getCurrentUserId, setCurrentUserId, fetchUsers, seedEnterpriseDemoData } from './api';
+import { getCurrentUserId, setCurrentUserId, fetchUsers, seedEnterpriseDemoData, getAuthToken, loginUser } from './api';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const DEMO_USERS_MAP = {
   emp_john: { id: 'emp_john', name: 'John Doe', role: 'employee', grade: 'L2', dept: 'Sales' },
+  emp_alice: { id: 'emp_alice', name: 'Alice Smith', role: 'employee', grade: 'L3', dept: 'Product' },
   ven_acme: { id: 'ven_acme', name: 'Acme Supplies', role: 'vendor', grade: 'Ext', dept: 'Procurement' },
+  ven_techcorp: { id: 'ven_techcorp', name: 'TechCorp Solutions', role: 'vendor', grade: 'Ext', dept: 'IT Hardware' },
   mgr_sarah: { id: 'mgr_sarah', name: 'Sarah Connor', role: 'manager', grade: 'L4', dept: 'Sales' },
-  fin_alex: { id: 'fin_alex', name: 'Alex Morgan', role: 'finance', grade: 'L4', dept: 'Finance' },
+  fin_alex: { id: 'fin_alex', name: 'Alex Morgan', role: 'finance', grade: 'L5', dept: 'Finance' },
+  admin_rachel: { id: 'admin_rachel', name: 'Rachel Green', role: 'admin', grade: 'L5', dept: 'Executive' },
 };
 
 export default function App() {
@@ -21,6 +24,15 @@ export default function App() {
   const [currentUserId, setUserIdState] = useState(getCurrentUserId());
   const [currentUser, setCurrentUser] = useState(DEMO_USERS_MAP[currentUserId] || DEMO_USERS_MAP.emp_john);
   const [toast, setToast] = useState(null);
+
+  // Auto-acquire JWT token on initial load if not already present
+  useEffect(() => {
+    if (!getAuthToken()) {
+      loginUser(currentUserId, 'password123').catch((err) => {
+        console.log("Initial auto-login notice:", err);
+      });
+    }
+  }, [currentUserId]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });

@@ -200,3 +200,4 @@ async def fetch_scoped_escalations(
     cursor = db.escalations.find(query).sort([("created_at", -1)]).skip(skip).limit(limit)
     docs = await cursor.to_list(limit)
     return serialize_docs(docs)
+

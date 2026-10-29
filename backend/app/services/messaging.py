@@ -30,7 +30,7 @@ async def get_or_create_phone_settings(db: Any, user_id: str) -> Dict[str, Any]:
     return res
 
 async def update_phone_settings(db: Any, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
-    """Update user's registered phone number and notification channel preferences."""
+    """Update user's registered phone number and notification channel preferences (zero secret storage)."""
     update_fields = {
         "phone_number": data.get("phone_number", DEFAULT_PHONE).strip(),
         "is_connected": True,
@@ -39,9 +39,6 @@ async def update_phone_settings(db: Any, user_id: str, data: Dict[str, Any]) -> 
         "alert_daily_recap": data.get("alert_daily_recap", True),
         "alert_anomaly": data.get("alert_anomaly", True),
         "alert_budget_warning": data.get("alert_budget_warning", True),
-        "twilio_sid": data.get("twilio_sid", "").strip(),
-        "twilio_token": data.get("twilio_token", "").strip(),
-        "twilio_from": data.get("twilio_from", "").strip(),
         "updated_at": datetime.utcnow()
     }
     await db.phone_settings.update_one(
@@ -61,17 +58,16 @@ async def dispatch_phone_message(
 ) -> Dict[str, Any]:
     """
     Sends message to user's connected phone number.
-    Supports Twilio REST API integration, and provides instant guaranteed autonomous dispatch logging.
+    Twilio credentials are strictly derived from environment variables (never stored in database).
     """
     prefix = "WA" if channel.upper() == "WHATSAPP" else "SM"
     dispatch_id = f"{prefix}-EXP-{uuid.uuid4().hex[:8].upper()}"
     status = "Delivered (Simulated Handset)"
 
-    # Check for Twilio Credentials (from user settings or system environment)
-    phone_doc = await db.phone_settings.find_one({"user_id": user_id})
-    tw_sid = (phone_doc.get("twilio_sid") if phone_doc else None) or settings.TWILIO_ACCOUNT_SID
-    tw_token = (phone_doc.get("twilio_token") if phone_doc else None) or settings.TWILIO_AUTH_TOKEN
-    tw_from = (phone_doc.get("twilio_from") if phone_doc else None) or settings.TWILIO_PHONE_NUMBER
+    # Credentials strictly read from system environment settings
+    tw_sid = settings.TWILIO_ACCOUNT_SID
+    tw_token = settings.TWILIO_AUTH_TOKEN
+    tw_from = settings.TWILIO_PHONE_NUMBER
 
     if tw_sid and tw_token and tw_from:
         try:

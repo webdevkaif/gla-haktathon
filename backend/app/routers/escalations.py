@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.app.database import get_db
-from backend.app.auth import get_current_user
+from backend.app.auth import get_current_user, require_role
 from backend.app.schemas import EscalationOut, EscalationCreate, EscalationResolveRequest
 from backend.app.services.escalation import create_escalation, resolve_escalation, get_escalations
 from backend.app.data_access import fetch_scoped_escalations
@@ -56,7 +56,7 @@ async def report_escalation(
 async def resolve_escalation_endpoint(
     escalation_id: str,
     payload: EscalationResolveRequest,
-    current_user = Depends(get_current_user),
+    current_user = Depends(require_role(["finance", "admin"])),
     db = Depends(get_db)
 ):
     """

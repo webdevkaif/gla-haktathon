@@ -47,7 +47,7 @@ flowchart TD
         R_SLA[APPROVAL_DELAY: 48h Overdue SLA]
     end
 
-    subgraph Storage ["Persistent Storage & Blockchain Trail"]
+    subgraph Storage ["Persistent Storage & Hash-chained audit log"]
         DB[(MongoDB Atlas / mongomock-motor Fallback)]
         AuditLog[(Immutable Audit Log: SHA-256 Hash Chaining)]
     end

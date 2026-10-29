@@ -10,7 +10,7 @@ from backend.app.services.workflow import (
 from backend.app.services.escalation import create_escalation, resolve_escalation, get_escalations
 from fastapi import HTTPException
 
-async def run_tests():
+async def test_stage3_stage4():
     print("==================================================")
     print("Testing Stage 3 (Workflow & Escalation) & Stage 4 (Audit Trail)")
     print("==================================================")
@@ -194,5 +194,7 @@ async def run_tests():
     print(f"\nFinal Audit Chain Integrity: VALID ({final_chain['total']} blocks intact)")
     print("\nALL STAGE 3 & STAGE 4 TESTS PASSED SUCCESSFULLY! 🚀")
 
+run_tests = test_stage3_stage4
+
 if __name__ == "__main__":
-    asyncio.run(run_tests())
+    asyncio.run(test_stage3_stage4())

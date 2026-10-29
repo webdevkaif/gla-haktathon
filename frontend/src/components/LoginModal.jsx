@@ -198,3 +198,4 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, currentUse
     </div>
   );
 }
+

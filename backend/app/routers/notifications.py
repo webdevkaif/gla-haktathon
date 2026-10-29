@@ -14,7 +14,6 @@ from backend.app.services.messaging import (
     dispatch_phone_message, 
     list_dispatched_messages
 )
-from backend.app.services.analytics import get_monthly_summary
 
 router = APIRouter(prefix="/api/notifications", tags=["Phone Notifications & Messaging"])
 
@@ -35,8 +34,8 @@ async def save_settings(
     
     # Auto-dispatch a confirmation greeting SMS to verify phone connection
     confirm_text = (
-        f"🚀 ExpensePilot AI Connected! Your phone ({payload.phone_number}) is successfully paired with your autonomous financial copilot. "
-        "You will receive daily budget allowances, invoice audits, and anomaly alerts."
+        f"🚀 Expense Pilot Connected! Your phone ({payload.phone_number}) is successfully paired with your corporate copilot. "
+        "You will receive approval reminders and escalation alerts."
     )
     await dispatch_phone_message(
         db=db,
@@ -67,8 +66,8 @@ async def send_test_message(
     channel = payload.channel or "SMS"
     
     content = payload.custom_text or (
-        f"⚡ ExpensePilot AI Live Test: Phone link established for {target_phone}. "
-        "Current balance safe daily allowance: ₹185/day. All systems autonomous."
+        f"⚡ Expense Pilot Live Test: Phone link established for {target_phone}. "
+        "Approval and audit notifications active."
     )
 
     return await dispatch_phone_message(
@@ -76,67 +75,6 @@ async def send_test_message(
         user_id=user_id,
         phone_number=target_phone,
         message_type="TEST_ALERT",
-        channel=channel,
-        content=content
-    )
-
-@router.post("/dispatch-summary", response_model=DispatchedMessageOut)
-async def dispatch_daily_summary(
-    month: Optional[str] = Query(None),
-    channel: str = Query("SMS"),
-    user_id: str = "user_default",
-    db = Depends(get_db)
-):
-    if not month:
-        month = datetime.utcnow().strftime("%Y-%m")
-
-    summary = await get_monthly_summary(db, user_id, month)
-    budget_doc = await db.budgets.find_one({"user_id": user_id, "month": month})
-    total_budget = budget_doc.get("total_budget", 18000.0) if budget_doc else 18000.0
-    settings = await get_or_create_phone_settings(db, user_id)
-    target_phone = settings.get("phone_number") or "+91 98765 43210"
-
-    content = (
-        f"📊 ExpensePilot Daily Financial Recap ({month}): "
-        f"Total Spent: ₹{summary.get('total_spent', 0):,.0f} of ₹{total_budget:,.0f} ({summary.get('percentage_used', 0):.1f}%). "
-        f"Safe Allowance: ₹{summary.get('daily_budget_remaining', 0):,.0f}/day for {summary.get('days_remaining', 4)} remaining days. "
-        f"Top Expense Driver: {summary.get('top_category', 'Food')} (₹{summary.get('top_category_amount', 0):,.0f})."
-    )
-
-    return await dispatch_phone_message(
-        db=db,
-        user_id=user_id,
-        phone_number=target_phone,
-        message_type="DAILY_SUMMARY",
-        channel=channel,
-        content=content
-    )
-
-@router.post("/dispatch-roadmap", response_model=DispatchedMessageOut)
-async def dispatch_roadmap_link(
-    month: Optional[str] = Query(None),
-    channel: str = Query("SMS"),
-    user_id: str = "user_default",
-    db = Depends(get_db)
-):
-    if not month:
-        month = datetime.utcnow().strftime("%Y-%m")
-
-    settings = await get_or_create_phone_settings(db, user_id)
-    target_phone = settings.get("phone_number") or "+91 98765 43210"
-    pdf_link = f"http://localhost:8000/api/analytics/roadmap/pdf?month={month}&user_id={user_id}"
-
-    content = (
-        f"🗺️ ExpensePilot AI: Your 90-Day Financial Optimization Roadmap is generated! "
-        f"Health Score: 74/100. Target Preserved Capital: +₹15,000. "
-        f"Download your official PDF report here: {pdf_link}"
-    )
-
-    return await dispatch_phone_message(
-        db=db,
-        user_id=user_id,
-        phone_number=target_phone,
-        message_type="ROADMAP_LINK",
         channel=channel,
         content=content
     )

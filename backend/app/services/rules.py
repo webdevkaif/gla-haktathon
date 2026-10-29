@@ -1,8 +1,48 @@
+import re
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List, Optional, Tuple
+from difflib import SequenceMatcher
 import numpy as np
 from backend.app.services.escalation import create_escalation
 from backend.app.services.audit import write_audit
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Normalization & Fuzzy Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def normalize_invoice_no(raw_no: str) -> str:
+    """
+    Normalizes invoice numbers by:
+      1. Uppercasing
+      2. Stripping leading zeros in numeric sequences (e.g. '02004' -> '2004')
+      3. Stripping all non-alphanumerics
+    Ensures that 'INV 2004', 'INV2004', 'INV-02004', and 'INV 002004' all produce 'INV2004'.
+    """
+    if not raw_no:
+        return ""
+    no_leading_zeros = re.sub(r'\d+', lambda m: str(int(m.group(0))), str(raw_no).upper())
+    return re.sub(r'[^A-Za-z0-9]', '', no_leading_zeros)
+
+def amounts_match_with_tolerance(amt1: float, amt2: float, tolerance_pct: float = 0.005) -> bool:
+    """Checks if two amounts match within a 0.5% tolerance window."""
+    if amt1 == 0 and amt2 == 0:
+        return True
+    base = max(abs(amt1), abs(amt2))
+    return abs(amt1 - amt2) <= (base * tolerance_pct)
+
+def vendor_matches(v1_id: str, v1_name: str, v2_id: str, v2_name: str, threshold: float = 0.8) -> bool:
+    """Fuzzy vendor matching via ID equality or name similarity >= threshold."""
+    id1 = (v1_id or "").strip().lower()
+    id2 = (v2_id or "").strip().lower()
+    if id1 and id2 and id1 == id2:
+        return True
+    n1 = re.sub(r'[^a-z0-9]', '', (v1_name or v1_id or "").lower())
+    n2 = re.sub(r'[^a-z0-9]', '', (v2_name or v2_id or "").lower())
+    if not n1 or not n2:
+        return False
+    if n1 == n2:
+        return True
+    return SequenceMatcher(None, n1, n2).ratio() >= threshold
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Standard Enterprise Policy Limits Configuration
@@ -43,11 +83,13 @@ def rule_duplicate_invoice(
     """
     DUPLICATE_INVOICE rule:
     Triggers if another invoice has:
-      a) same vendor + same invoice_no, OR
-      b) same vendor + same amount + invoice_date within 7 calendar days.
+      a) same or fuzzy vendor + same normalized invoice_no, OR
+      b) same or fuzzy vendor + amount within 0.5% tolerance + invoice_date within 7 calendar days.
     """
-    inv_no = str(invoice.get("invoice_no", "")).strip().upper()
+    raw_inv_no = str(invoice.get("invoice_no", "")).strip()
+    norm_inv_no = normalize_invoice_no(raw_inv_no)
     v_id = str(invoice.get("vendor_id", "")).strip().lower()
+    v_name = str(invoice.get("vendor_name", "")).strip()
     amount = float(invoice.get("amount", 0.0))
     inv_id = str(invoice.get("id", invoice.get("_id", "")))
 
@@ -64,24 +106,32 @@ def rule_duplicate_invoice(
         if inv_id and other_id and inv_id == other_id:
             continue
 
-        other_v = str(other.get("vendor_id", "")).strip().lower()
-        if other_v != v_id:
+        other_v_id = str(other.get("vendor_id", "")).strip().lower()
+        other_v_name = str(other.get("vendor_name", "")).strip()
+        
+        # Check vendor match (exact or fuzzy >= 0.8)
+        if not vendor_matches(v_id, v_name, other_v_id, other_v_name):
             continue
 
-        other_no = str(other.get("invoice_no", "")).strip().upper()
-        # Case A: Identical vendor and invoice_no
-        if inv_no and other_no and inv_no == other_no:
+        other_raw_no = str(other.get("invoice_no", "")).strip()
+        other_norm_no = normalize_invoice_no(other_raw_no)
+
+        # Case A: Matching normalized invoice_no
+        if norm_inv_no and other_norm_no and norm_inv_no == other_norm_no:
             return {
                 "rule_id": "DUPLICATE_INVOICE",
                 "triggered": True,
-                "reason": f"DUPLICATE_INVOICE: Invoice #{inv_no} has already been registered for vendor '{v_id}'",
+                "reason": (
+                    f"DUPLICATE_INVOICE: Invoice #{raw_inv_no} matches existing #{other_raw_no} "
+                    f"(normalized: '{norm_inv_no}') for vendor '{v_name or v_id}'"
+                ),
                 "severity": "high",
-                "duplicate_of": other_no
+                "duplicate_of": other_raw_no
             }
 
-        # Case B: Identical vendor, matching amount, within 7 calendar days
+        # Case B: Matching amount within 0.5% tolerance + date within 7 calendar days
         other_amt = float(other.get("amount", 0.0))
-        if abs(amount - other_amt) < 0.01 and inv_dt is not None:
+        if amounts_match_with_tolerance(amount, other_amt, tolerance_pct=0.005) and inv_dt is not None:
             other_date_str = other.get("invoice_date", "")
             if other_date_str:
                 try:
@@ -92,17 +142,72 @@ def rule_duplicate_invoice(
                             "rule_id": "DUPLICATE_INVOICE",
                             "triggered": True,
                             "reason": (
-                                f"DUPLICATE_INVOICE: Matches invoice #{other_no} "
-                                f"(same vendor, identical amount ₹{amount:,.0f}, within {delta_days} days)"
+                                f"DUPLICATE_INVOICE: Matches invoice #{other_raw_no} "
+                                f"(vendor '{v_name or v_id}', amount ₹{amount:,.2f} within 0.5% tolerance, within {delta_days} days)"
                             ),
                             "severity": "high",
-                            "duplicate_of": other_no
+                            "duplicate_of": other_raw_no
                         }
                 except Exception:
                     pass
 
     return {
         "rule_id": "DUPLICATE_INVOICE",
+        "triggered": False,
+        "reason": None,
+        "severity": "none",
+        "duplicate_of": None
+    }
+
+
+def rule_repeated_claim(
+    claim: Dict[str, Any],
+    existing_claims: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    REPEATED_CLAIM rule:
+    Triggers if another claim has:
+      same employee + same category + same amount (within 0.5% tolerance) + same date.
+    """
+    emp_id = str(claim.get("employee_id", "")).strip().lower()
+    cat = str(claim.get("category", "")).strip().lower()
+    amount = float(claim.get("amount", 0.0))
+    date_str = str(claim.get("date", ""))[:10]
+    claim_id = str(claim.get("id", claim.get("claim_no", claim.get("_id", ""))))
+
+    for other in existing_claims:
+        other_id = str(other.get("id", other.get("claim_no", other.get("_id", ""))))
+        if claim_id and other_id and claim_id == other_id:
+            continue
+
+        other_emp = str(other.get("employee_id", "")).strip().lower()
+        if other_emp != emp_id:
+            continue
+
+        other_cat = str(other.get("category", "")).strip().lower()
+        if other_cat != cat:
+            continue
+
+        other_date = str(other.get("date", ""))[:10]
+        if other_date != date_str:
+            continue
+
+        other_amt = float(other.get("amount", 0.0))
+        if amounts_match_with_tolerance(amount, other_amt, tolerance_pct=0.005):
+            other_no = other.get("claim_no") or other_id
+            return {
+                "rule_id": "REPEATED_CLAIM",
+                "triggered": True,
+                "reason": (
+                    f"REPEATED_CLAIM: Identical claim already exists #{other_no} "
+                    f"(same employee '{emp_id}', category '{cat}', amount ₹{amount:,.2f}, date {date_str})"
+                ),
+                "severity": "high",
+                "duplicate_of": other_no
+            }
+
+    return {
+        "rule_id": "REPEATED_CLAIM",
         "triggered": False,
         "reason": None,
         "severity": "none",
@@ -389,10 +494,12 @@ def rule_unusual_amount(
 def evaluate_claim_rules(
     claim: Dict[str, Any],
     user_grade: str = "L2",
-    historical_amounts: Optional[List[float]] = None
+    historical_amounts: Optional[List[float]] = None,
+    existing_claims: Optional[List[Dict[str, Any]]] = None
 ) -> List[Dict[str, Any]]:
     """Evaluates all rules applicable to an employee expense claim."""
     results = [
+        rule_repeated_claim(claim, existing_claims or []),
         rule_policy_limit(claim, user_grade=user_grade),
         rule_missing_receipt(claim),
         rule_late_submission(claim),
@@ -435,10 +542,14 @@ async def audit_and_flag_claim(
     hist_docs = await hist_cursor.to_list(length=100)
     historical_amounts = [float(d["amount"]) for d in hist_docs if "amount" in d]
 
+    # Fetch existing claims for repeated claim detection
+    existing_claims = await db.claims.find({"employee_id": claim.get("employee_id")}).to_list(100)
+
     triggered_rules = evaluate_claim_rules(
         claim=claim,
         user_grade=user.get("grade", "L2"),
-        historical_amounts=historical_amounts
+        historical_amounts=historical_amounts,
+        existing_claims=existing_claims
     )
 
     flags = [r["reason"] for r in triggered_rules if r.get("reason")]

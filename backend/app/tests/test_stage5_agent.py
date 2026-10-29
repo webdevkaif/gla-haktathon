@@ -3,7 +3,7 @@ from backend.app.database import init_db, get_database
 from backend.app.services.seed_data import seed_enterprise_data
 from backend.app.agent.engine import process_agent_message, mask_pii, is_out_of_scope
 
-async def run_tests():
+async def test_stage5_agent():
     print("==================================================")
     print("Testing Stage 5: Enterprise Agent Engine, Whitelisted Tools & Guardrails")
     print("==================================================")
@@ -124,5 +124,7 @@ async def run_tests():
 
     print("\nALL STAGE 5 AGENT TESTS PASSED SUCCESSFULLY! 🚀")
 
+run_tests = test_stage5_agent
+
 if __name__ == "__main__":
-    asyncio.run(run_tests())
+    asyncio.run(test_stage5_agent())

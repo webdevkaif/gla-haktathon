@@ -185,37 +185,62 @@ DEFAULT_USER_ID = "emp_john"
 # FastAPI Dependencies: get_current_user & require_role
 # ─────────────────────────────────────────────────────────────────────────────
 
+def create_demo_token(user_id_or_email: str) -> str:
+    """Helper to generate signed JWT tokens for test scripts and demo users."""
+    user = DEMO_USERS.get(user_id_or_email)
+    if not user:
+        for u in DEMO_USERS.values():
+            if u.get("email") == user_id_or_email:
+                user = u
+                break
+    if not user:
+        user = {
+            "id": user_id_or_email,
+            "name": user_id_or_email,
+            "role": "employee",
+            "grade": "L2",
+            "email": f"{user_id_or_email}@meridian.com",
+            "manager_id": "mgr_sarah",
+            "vendor_id": None
+        }
+
+    token_claims = {
+        "sub": user["id"],
+        "id": user["id"],
+        "name": user.get("name"),
+        "role": user.get("role", "employee"),
+        "email": user.get("email"),
+        "grade": user.get("grade"),
+        "vendor_id": user.get("vendor_id")
+    }
+    return create_access_token(token_claims)
+
 async def get_current_user(
     authorization: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     db = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Extracts the authenticated user:
-    1. Validates standard 'Authorization: Bearer <jwt>' header if present.
-    2. Falls back to 'X-User-Id' header for seamless demo user switcher.
-    3. Resolves user from MongoDB 'users' collection with fallback to DEMO_USERS.
+    Extracts and authenticates the current caller.
+    SECURITY ENFORCEMENT:
+    A signed JWT token ('Authorization: Bearer <token>') is strictly required.
+    X-User-Id header ALONE does NOT grant any role or authorization.
     """
-    user_id = None
+    # 1. Check for signed JWT Bearer token
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required: X-User-Id alone does not grant role authorization. Please authenticate via POST /api/auth/login to obtain a signed JWT Bearer token."
+        )
 
-    # 1. Bearer Token Check
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ")[1].strip()
-        try:
-            payload = decode_access_token(token)
-            user_id = payload.get("sub") or payload.get("id")
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=401, detail=f"Invalid Authorization header: {str(e)}")
+    token = authorization.split(" ")[1].strip()
+    payload = decode_access_token(token)
+    user_id = payload.get("sub") or payload.get("id")
 
-    # 2. Header Fallback Check
     if not user_id:
-        user_id = (x_user_id or DEFAULT_USER_ID).strip()
-    if not user_id:
-        user_id = DEFAULT_USER_ID
+        raise HTTPException(status_code=401, detail="Invalid token: missing subject claim.")
 
-    # 3. Database Lookup
+    # 2. Database Lookup
     user_doc = await db.users.find_one({"$or": [{"id": user_id}, {"email": user_id}]})
     if user_doc:
         doc = dict(user_doc)
@@ -223,7 +248,7 @@ async def get_current_user(
             doc["_id"] = str(doc["_id"])
         return doc
 
-    # 4. Fallback to static demo user map
+    # 3. Fallback to static demo user map
     if user_id in DEMO_USERS:
         return dict(DEMO_USERS[user_id])
 
@@ -231,15 +256,15 @@ async def get_current_user(
         if u.get("email") == user_id:
             return dict(u)
 
-    # 5. Safe default user
+    # 4. Use token claims as trusted profile if signed by JWT_SECRET
     return {
         "id": user_id,
-        "name": user_id.replace("_", " ").title(),
-        "role": "employee",
-        "grade": "L2",
-        "email": f"{user_id}@meridian.com",
-        "manager_id": "mgr_sarah",
-        "vendor_id": None,
+        "name": payload.get("name", user_id.replace("_", " ").title()),
+        "role": payload.get("role", "employee"),
+        "grade": payload.get("grade", "L2"),
+        "email": payload.get("email", f"{user_id}@meridian.com"),
+        "manager_id": payload.get("manager_id", "mgr_sarah"),
+        "vendor_id": payload.get("vendor_id"),
         "is_sample": True
     }
 

@@ -8,7 +8,7 @@ from backend.app.services.file_extractor import extract_tabular_data
 from backend.app.services.ocr import check_mindee_status
 from backend.app.agent.engine import process_agent_message
 
-async def run_tests():
+async def test_upload_multilang_mindee():
     print("=" * 60)
     print("TESTING: SPREADSHEET UPLOAD, MULTI-LANGUAGE & MINDEE STATUS")
     print("=" * 60)
@@ -126,5 +126,7 @@ async def run_tests():
     print("ALL TESTS COMPLETED SUCCESSFULLY! 🚀")
     print("=" * 60)
 
+run_tests = test_upload_multilang_mindee
+
 if __name__ == "__main__":
-    asyncio.run(run_tests())
+    asyncio.run(test_upload_multilang_mindee())

@@ -713,7 +713,6 @@ async def seed_enterprise_data(db) -> Dict[str, int]:
     audit_docs = []
     current_hash = "0" * 64
     for entry in initial_audit_entries:
-        next_hash = compute_audit_hash(current_hash, entry)
         doc = AuditLog.create(
             actor_id=entry["actor_id"],
             actor_role=entry["actor_role"],
@@ -725,10 +724,11 @@ async def seed_enterprise_data(db) -> Dict[str, int]:
             result=entry["result"],
             status=entry["status"],
             prev_hash=current_hash,
-            entry_hash=next_hash,
             log_id=entry["id"]
         )
         doc["ts"] = entry["ts"]
+        next_hash = compute_audit_hash(current_hash, doc)
+        doc["hash"] = next_hash
         audit_docs.append(doc)
         current_hash = next_hash
 
