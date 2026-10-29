@@ -17,3 +17,4 @@ async def get_anomaly_detections(
     Flags unusually high spending, sudden spikes, duplicate payments, and pattern deviations.
     """
     return await detect_pyod_isolation_forest_anomalies(db, user_id=user_id, month=month)
+

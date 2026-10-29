@@ -45,6 +45,7 @@ export default function Navbar({
     { id: 'forecast', label: 'Forecast & Anomalies', icon: TrendingUp },
     { id: 'simulator', label: 'What-If Simulator', icon: Sliders },
     { id: 'goals', label: 'Savings Goals', icon: Target },
+    { id: 'account', label: 'Login & Account', icon: Lock },
   ];
 
   return (
@@ -102,8 +103,9 @@ export default function Navbar({
             {/* Supabase User Auth Profile Pill / Login Button */}
             {user && !user.is_guest ? (
               <div 
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-btn border border-emerald-500/35 bg-emerald-500/10 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                title={`Signed in as: ${user.email} (Supabase Auth)`}
+                onClick={() => setActiveTab('account')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-btn border border-emerald-500/35 bg-emerald-500/10 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)] cursor-pointer hover:border-emerald-400"
+                title={`Signed in as: ${user.email} (Click to view account)`}
               >
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -112,7 +114,7 @@ export default function Navbar({
                   </span>
                 </div>
                 <button
-                  onClick={signOut}
+                  onClick={(e) => { e.stopPropagation(); signOut(); }}
                   className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
                   title="Sign Out"
                 >

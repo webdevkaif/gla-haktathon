@@ -15,6 +15,7 @@ import PhoneAlertsView from './components/PhoneAlertsView';
 import HackathonDifferentiatorsView from './components/HackathonDifferentiatorsView';
 import MongoConnectionModal from './components/MongoConnectionModal';
 import AuthModal from './components/AuthModal';
+import AccountLoginSection from './components/AccountLoginSection';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { 
   fetchMonthlySummary, 
@@ -265,6 +266,12 @@ function AppContent() {
               <SavingsGoalPlanner
                 goals={goals}
                 onGoalsMutated={loadAllData}
+              />
+            )}
+
+            {activeTab === 'account' && (
+              <AccountLoginSection
+                onLoginSuccess={() => setActiveTab('dashboard')}
               />
             )}
           </>
