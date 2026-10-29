@@ -10,7 +10,9 @@ import {
   RotateCcw,
   Sparkles,
   Building2,
-  KeyRound
+  KeyRound,
+  Compass,
+  LogOut
 } from 'lucide-react';
 import { getCurrentUserId, setCurrentUserId, loginUser } from '../api';
 import LoginModal from './LoginModal';
@@ -25,7 +27,7 @@ const DEMO_USERS = [
   { id: 'admin_rachel', name: 'Rachel Green', email: 'admin@meridian.com', role: 'Admin', grade: 'L5', dept: 'Executive', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
 ];
 
-export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetData }) {
+export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetData, onLockSession }) {
   const [selectedUserId, setSelectedUserId] = useState(getCurrentUserId());
   const [isSeeding, setIsSeeding] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -70,6 +72,7 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
   const currentUser = DEMO_USERS.find(u => u.id === selectedUserId) || DEMO_USERS[0];
 
   const navItems = [
+    { id: 'spatial', label: 'Spatial OS', icon: Compass },
     { id: 'chat', label: 'Agent Chat', icon: Bot },
     { id: 'dashboard', label: 'Finance Dashboard', icon: BarChart3 },
     { id: 'claims_invoices', label: 'Claims & Invoices', icon: FileText },
@@ -149,6 +152,17 @@ export default function Navbar({ activeTab, setActiveTab, onUserChange, onResetD
             >
               <RotateCcw className={`w-4 h-4 ${isSeeding ? 'animate-spin text-teal-400' : ''}`} />
             </button>
+
+            {/* Lock Session & Return to Gateway */}
+            {onLockSession && (
+              <button
+                onClick={onLockSession}
+                title="Lock Session and return to Glassmorphic Gateway"
+                className="p-2 text-rose-400 hover:text-rose-200 hover:bg-rose-500/20 rounded-lg border border-rose-500/30 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 

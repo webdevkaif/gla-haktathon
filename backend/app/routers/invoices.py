@@ -167,7 +167,7 @@ async def upload_invoice(
     extracted_tax = float(mindee_result.get("tax") or (extracted_amount * 0.18)) if mindee_result else 2700.0
     due_date = (now + timedelta(days=due_days)).strftime("%Y-%m-%d")
 
-    inv_no = f"INV-OCR-{int(now.timestamp()) % 90000 + 10000}"
+    inv_no = (mindee_result.get("invoice_no") if mindee_result else None) or f"INV-OCR-{int(now.timestamp()) % 90000 + 10000}"
 
     inv_dict = Invoice.create(
         invoice_no=inv_no,

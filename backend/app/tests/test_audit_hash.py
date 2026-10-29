@@ -188,3 +188,4 @@ async def test_tamper_detection_middle_entry_actor_role(setup_test_db):
     tampered_res = await verify_chain(db)
     assert tampered_res["valid"] is False
     assert tampered_res["broken_at_index"] == 2
+

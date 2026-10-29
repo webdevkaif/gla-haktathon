@@ -207,3 +207,4 @@ def test_rule_repeated_claim_negative_diff_amount():
     }
     result = rule_repeated_claim(new_claim, existing)
     assert result["triggered"] is False
+
