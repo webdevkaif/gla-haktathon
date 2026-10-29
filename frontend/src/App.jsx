@@ -14,6 +14,8 @@ import PhoneAlertsModal from './components/PhoneAlertsModal';
 import PhoneAlertsView from './components/PhoneAlertsView';
 import HackathonDifferentiatorsView from './components/HackathonDifferentiatorsView';
 import MongoConnectionModal from './components/MongoConnectionModal';
+import AuthModal from './components/AuthModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { 
   fetchMonthlySummary, 
   fetchCurrentBudget, 
@@ -26,7 +28,8 @@ import {
 } from './api';
 import { Bot, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export default function App() {
+function AppContent() {
+  const { user, isGuestMode, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   
   // App data state
@@ -39,6 +42,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals & Drawers
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialPrompt, setChatInitialPrompt] = useState('');
@@ -187,6 +191,7 @@ export default function App() {
         onToggleAlerts={() => setIsAlertsOpen(prev => !prev)}
         onTogglePhoneAlerts={() => setIsPhoneModalOpen(prev => !prev)}
         onOpenMongoModal={() => setIsMongoModalOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
         dbStatus={dbStatus}
         unreadAlertCount={unreadAlerts.length}
         onSeedDemo={handleSeedDemo}
@@ -380,11 +385,25 @@ export default function App() {
         onDataMutated={loadAllData}
       />
 
+      {/* Supabase Authentication & Route Protection Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen || (!authLoading && !user && !isGuestMode)}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
+
       {/* Footer */}
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
         <p>ExpensePilot AI — Autonomous Financial Management Agent • GLA Hackathon Edition</p>
       </footer>
 
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

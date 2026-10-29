@@ -53,6 +53,8 @@ async def create_expense(
         payment_method=payload.payment_method
     )
     query = {"$and": [{"user_id": user_id}, build_id_query(res["id"])]}
+    if payload.payload_hash:
+        await db.expenses.update_one(query, {"$set": {"payload_hash": payload.payload_hash}})
     obj = await db.expenses.find_one(query)
     return serialize_doc(obj)
 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Sparkles, PlusCircle, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { X, Sparkles, PlusCircle, CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck } from 'lucide-react';
 import { createExpense, sendAgentMessage } from '../api';
 import { formatCurrency } from '../utils/formatters';
+import { generateExpenseIntegritySeal } from '../utils/crypto';
 
 const CATEGORIES = [
   "Food",
@@ -65,16 +66,24 @@ export default function AddExpenseModal({ isOpen, onClose, onExpenseAdded }) {
     setIsLoading(true);
     setFeedback(null);
     try {
-      const res = await createExpense({
+      // 🛡️ Web Crypto SHA-256 Non-Password Data Integrity Seal
+      const expensePayload = {
         amount: parseFloat(amount),
         category,
         description,
         date,
         payment_method: paymentMethod
+      };
+      const seal = await generateExpenseIntegritySeal(expensePayload);
+
+      const res = await createExpense({
+        ...expensePayload,
+        payload_hash: seal.payload_hash
       });
+
       setFeedback({
         type: 'success',
-        message: `Expense of ${formatCurrency(res.amount)} recorded under ${res.category}!`,
+        message: `Expense recorded under ${res.category}! Web Crypto SHA-256 seal: ${seal.payload_hash.slice(0, 10)}...`,
         items: [res]
       });
       setAmount('');

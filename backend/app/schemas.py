@@ -334,6 +334,7 @@ class ExpenseBase(BaseModel):
     description: str
     date: str
     payment_method: Optional[str] = "Unknown"
+    payload_hash: Optional[str] = None
 
 class ExpenseCreate(ExpenseBase):
     pass

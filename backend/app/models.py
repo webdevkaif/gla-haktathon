@@ -311,6 +311,7 @@ class Expense:
             "payment_method": kwargs.get("payment_method", "Unknown"),
             "is_unusual": kwargs.get("is_unusual", False),
             "anomaly_reason": kwargs.get("anomaly_reason"),
+            "payload_hash": kwargs.get("payload_hash"),
             "created_at": datetime.utcnow(),
             "is_sample": kwargs.get("is_sample", True)
         }

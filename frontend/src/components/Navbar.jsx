@@ -13,10 +13,13 @@ import {
   FileText,
   Smartphone,
   ShieldCheck,
-  Database 
+  Database,
+  Lock,
+  LogOut 
 } from 'lucide-react';
 
 import GhibliButton from './GhibliButton';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ 
   activeTab, 
@@ -26,11 +29,13 @@ export default function Navbar({
   onToggleAlerts, 
   onTogglePhoneAlerts,
   onOpenMongoModal,
+  onOpenAuthModal,
   dbStatus,
   unreadAlertCount, 
   onSeedDemo, 
   isSeeding 
 }) {
+  const { user, signOut, isGuestMode } = useAuth();
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'enterprise', label: 'Enterprise HQ', icon: ShieldCheck },
@@ -94,6 +99,38 @@ export default function Navbar({
 
           {/* Right Frosted Action Buttons - Generous Spacing */}
           <div className="flex items-center gap-3 sm:gap-4">
+            {/* Supabase User Auth Profile Pill / Login Button */}
+            {user && !user.is_guest ? (
+              <div 
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-btn border border-emerald-500/35 bg-emerald-500/10 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                title={`Signed in as: ${user.email} (Supabase Auth)`}
+              >
+                <div className="flex items-center gap-1.5 text-xs font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline max-w-[100px] truncate">
+                    {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                  </span>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                id="btn-open-auth"
+                onClick={onOpenAuthModal}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-btn text-xs font-bold text-cyan-300 hover:text-white border border-cyan-500/35 hover:border-cyan-400/60 transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                title="Sign In or Register with Supabase Auth"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sign In</span>
+              </button>
+            )}
+
             {/* MongoDB Real-Time Status Pill */}
             <button
               id="btn-mongo-status"
