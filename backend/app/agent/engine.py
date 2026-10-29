@@ -499,13 +499,90 @@ async def process_agent_message(
     # 2. Mask PII in input
     masked_message, had_pii = mask_pii(message)
 
-    # 3. Query LLM (Gemini or Groq) if API key configured and network is open, otherwise use deterministic engine
+    # 3. Query LLM (Groq, xAI Grok, or Gemini) if API key configured, otherwise use deterministic engine
     result = None
-    if settings.GEMINI_API_KEY and not file_context:
+
+    # Option A: Groq (Ultra-fast LPU inference)
+    if not result and settings.GROQ_API_KEY and not file_context:
         try:
             lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
-            async with httpx.AsyncClient(timeout=6.0) as client:
+            model_to_use = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}"},
+                    json={
+                        "model": model_to_use,
+                        "messages": [
+                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')})"},
+                            {"role": "user", "content": masked_message}
+                        ],
+                        "temperature": 0.1,
+                        "max_tokens": 500
+                    }
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    raw_reply = data["choices"][0]["message"]["content"]
+                    citations = []
+                    if any(k in masked_message.lower() for k in ["policy", "limit", "hotel", "meal", "travel", "receipt", "rule"]):
+                        p_qa = await tool_policy_qa(db, masked_message, user_doc)
+                        citations = p_qa.get("citations", [])
+
+                    result = {
+                        "reply": raw_reply,
+                        "citations": citations,
+                        "tool_called": "policy_qa" if citations else None,
+                        "tool_result": None,
+                        "escalated": False,
+                        "suggested_actions": ["Check claim status", "View policy limits"]
+                    }
+        except Exception as e:
+            print(f"[Agent Notice] Groq inference fallback: {e}")
+
+    # Option B: xAI Grok
+    if not result and getattr(settings, 'GROK_API_KEY', None) and not file_context:
+        try:
+            lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.post(
+                    "https://api.x.ai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.GROK_API_KEY}"},
+                    json={
+                        "model": "grok-2-latest",
+                        "messages": [
+                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')})"},
+                            {"role": "user", "content": masked_message}
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 500
+                    }
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    raw_reply = data["choices"][0]["message"]["content"]
+                    citations = []
+                    if any(k in masked_message.lower() for k in ["policy", "limit", "hotel", "meal", "travel", "receipt", "rule"]):
+                        p_qa = await tool_policy_qa(db, masked_message, user_doc)
+                        citations = p_qa.get("citations", [])
+
+                    result = {
+                        "reply": raw_reply,
+                        "citations": citations,
+                        "tool_called": "policy_qa" if citations else None,
+                        "tool_result": None,
+                        "escalated": False,
+                        "suggested_actions": ["Check claim status", "View policy limits"]
+                    }
+        except Exception as e:
+            print(f"[Agent Notice] xAI Grok inference fallback: {e}")
+
+    # Option C: Google Gemini
+    if not result and settings.GEMINI_API_KEY and not file_context:
+        try:
+            lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={settings.GEMINI_API_KEY}"
+            async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.post(
                     gemini_url,
                     headers={"Content-Type": "application/json"},
@@ -538,42 +615,6 @@ async def process_agent_message(
                         }
         except Exception as e:
             print(f"[Agent Notice] Gemini API fallback: {e}")
-
-    if not result and settings.GROQ_API_KEY and not file_context:
-        try:
-            lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
-            async with httpx.AsyncClient(timeout=6.0) as client:
-                res = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}"},
-                    json={
-                        "model": settings.GROQ_MODEL or "openai/gpt-oss-120b",
-                        "messages": [
-                            {"role": "system", "content": f"{SYSTEM_PROMPT}\n{lang_instruction}\nCurrent User: {user_doc.get('name')} (Role: {user_doc.get('role')}, ID: {user_doc.get('id')}, Grade: {user_doc.get('grade')})"},
-                            {"role": "user", "content": masked_message}
-                        ],
-                        "temperature": 0.1,
-                        "max_tokens": 500
-                    }
-                )
-                if res.status_code == 200:
-                    data = res.json()
-                    raw_reply = data["choices"][0]["message"]["content"]
-                    citations = []
-                    if any(k in masked_message.lower() for k in ["policy", "limit", "hotel", "meal", "travel", "receipt", "rule"]):
-                        p_qa = await tool_policy_qa(db, masked_message, user_doc)
-                        citations = p_qa.get("citations", [])
-
-                    result = {
-                        "reply": raw_reply,
-                        "citations": citations,
-                        "tool_called": "policy_qa" if citations else None,
-                        "tool_result": None,
-                        "escalated": False,
-                        "suggested_actions": ["Check claim status", "View policy limits"]
-                    }
-        except Exception as e:
-            print(f"[Agent Notice] Groq LLM fallback active: {e}")
 
     # Fallback to deterministic engine with multi-language and spreadsheet support
     if not result:
