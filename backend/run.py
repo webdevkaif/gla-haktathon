@@ -20,13 +20,16 @@ os.environ["PYTHONPATH"] = str(project_root) + (os.pathsep + os.environ.get("PYT
 
 if __name__ == "__main__":
     import uvicorn
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8000"))
     print("\n" + "=" * 65)
-    print("🚀 Starting Expense Pilot Backend (Meridian DEV-C04) on http://127.0.0.1:8000 ...")
+    print(f"🚀 Starting Expense Pilot Backend (Meridian DEV-C04) on http://{host}:{port} ...")
+    print(f"📚 Interactive Swagger API Docs : http://127.0.0.1:{port}/docs")
     print("=" * 65 + "\n")
     uvicorn.run(
         "backend.app.main:app",
-        host="127.0.0.1",
-        port=8000,
+        host=host,
+        port=port,
         reload=True,
         app_dir=str(project_root)
     )

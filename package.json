@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node start.js",
     "dev": "node start.js",
-    "backend": "cd backend && ./.venv/bin/python run.py",
+    "backend": "python3 run.py",
     "frontend": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build"
   }

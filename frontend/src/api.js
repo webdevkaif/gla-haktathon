@@ -1,4 +1,6 @@
-const API_BASE = "http://127.0.0.1:8000/api";
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
+  ? import.meta.env.VITE_API_URL 
+  : "http://127.0.0.1:8000/api";
 
 export async function fetchMonthlySummary(month = "2026-10") {
   const res = await fetch(`${API_BASE}/analytics/monthly?month=${month}`);
