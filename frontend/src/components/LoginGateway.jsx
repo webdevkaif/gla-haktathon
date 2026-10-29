@@ -378,3 +378,4 @@ export default function LoginGateway({ onLoginSuccess, currentTheme, setCurrentT
     </div>
   );
 }
+

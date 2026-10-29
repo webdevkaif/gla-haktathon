@@ -787,3 +787,4 @@ export default function SpatialCommandDashboard({
     </div>
   );
 }
+
