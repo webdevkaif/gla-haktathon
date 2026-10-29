@@ -44,6 +44,9 @@ export default function App() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [toast, setToast] = useState(null);
 
+  // 3D Background Theme State: 'chakra' (Naruto) | 'cyber' (Anime Pilot) | 'ghibli' (Meadow) | 'none'
+  const [bgTheme, setBgTheme] = useState('chakra');
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -95,18 +98,51 @@ export default function App() {
   return (
     <div className="relative min-h-screen bg-[#060a14] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white overflow-hidden">
       
-      {/* Ambient Frosted Glass Background Orbs (Mesh Glow) */}
+      {/* =====================================================================
+          IMMERSIVE 3D BACKGROUND IMAGE & HOLOGRAPHIC AMBIENT LAYER
+          ===================================================================== */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Orb 1: Cyan / Sky glow top-left */}
+        
+        {/* Active 3D Background Image Layer with Parallax Breathing */}
+        {bgTheme === 'chakra' && (
+          <div 
+            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-25 filter blur-[1.5px] brightness-90"
+            style={{ backgroundImage: `url('/naruto_chakra_pilot.jpg')` }}
+          />
+        )}
+        {bgTheme === 'cyber' && (
+          <div 
+            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-25 filter blur-[1.5px] brightness-90"
+            style={{ backgroundImage: `url('/anime_agent_hud.jpg')` }}
+          />
+        )}
+        {bgTheme === 'ghibli' && (
+          <div 
+            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-30 filter blur-[1px] brightness-95"
+            style={{ backgroundImage: `url('/ghibli_peaceful_meadow.jpg')` }}
+          />
+        )}
+
+        {/* Ambient Dark Vignette & Mesh Depth Gradients to guarantee 100% text readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060a14]/90 via-[#060a14]/75 to-[#060a14]/95 backdrop-blur-[0.5px]" />
+
+        {/* Floating 3D Character Hologram Asset in Bottom-Right Corner */}
+        <div className="hidden xl:block absolute -bottom-8 -right-6 w-80 h-80 pointer-events-none opacity-40 animate-3d-character z-0">
+          <img 
+            src="/src/assets/hero.png" 
+            alt="3D Pilot AI" 
+            className="w-full h-full object-contain filter drop-shadow-[0_0_35px_rgba(6,182,212,0.5)]" 
+          />
+        </div>
+
+        {/* Dynamic Glowing Mesh Orbs */}
         <div className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full bg-gradient-to-br from-cyan-500/25 to-blue-600/15 blur-[130px] animate-float-1"></div>
-        {/* Orb 2: Violet / Fuchsia glow top-right */}
         <div className="absolute -top-24 -right-28 w-[600px] h-[600px] rounded-full bg-gradient-to-bl from-purple-600/25 to-pink-600/15 blur-[150px] animate-float-2"></div>
-        {/* Orb 3: Indigo / Blue center bloom */}
         <div className="absolute top-1/3 left-1/3 w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[160px] animate-float-3"></div>
-        {/* Orb 4: Emerald / Teal glow bottom-right */}
         <div className="absolute -bottom-36 right-10 w-[550px] h-[550px] rounded-full bg-emerald-500/20 blur-[140px] animate-float-1"></div>
-        {/* Subtle glass grid texture */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
+        
+        {/* Subtle Cyber Grid Texture */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
       </div>
 
       {/* Toast Notification */}
@@ -216,6 +252,55 @@ export default function App() {
         </div>
         <span>Ask Pilot AI</span>
       </button>
+
+      {/* Floating 3D Background Controller */}
+      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-xl shadow-2xl">
+        <span className="text-[10px] font-mono font-bold text-slate-400 px-2 flex items-center gap-1">
+          <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
+          <span>3D BG:</span>
+        </span>
+        <button
+          onClick={() => setBgTheme('chakra')}
+          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+            bgTheme === 'chakra' 
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.6)]' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          🌀 Shinobi
+        </button>
+        <button
+          onClick={() => setBgTheme('cyber')}
+          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+            bgTheme === 'cyber' 
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_12px_rgba(6,182,212,0.6)]' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          🤖 Cyber
+        </button>
+        <button
+          onClick={() => setBgTheme('ghibli')}
+          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+            bgTheme === 'ghibli' 
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.6)]' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          🌿 Ghibli
+        </button>
+        <button
+          onClick={() => setBgTheme('none')}
+          className={`px-2 py-1 rounded-xl text-[11px] font-bold transition-all ${
+            bgTheme === 'none' 
+              ? 'bg-slate-700 text-white' 
+              : 'text-slate-500 hover:text-white hover:bg-slate-800/60'
+          }`}
+          title="Minimal Mesh Background"
+        >
+          Off
+        </button>
+      </div>
 
       {/* Modals & Slide-out Drawers */}
       <AddExpenseModal
