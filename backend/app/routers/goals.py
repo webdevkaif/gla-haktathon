@@ -8,6 +8,7 @@ from backend.app.agent.tools import tool_create_saving_plan
 router = APIRouter(prefix="/api/goals", tags=["Saving Goals"])
 
 @router.get("", response_model=List[SavingGoalOut])
+@router.get("/", response_model=List[SavingGoalOut])
 async def list_goals(
     user_id: str = "user_default",
     db = Depends(get_db)

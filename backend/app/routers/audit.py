@@ -8,6 +8,7 @@ from backend.app.services.audit import get_audit_logs, verify_chain
 router = APIRouter(prefix="/api/audit", tags=["Cryptographic Audit Trail"])
 
 @router.get("", response_model=List[AuditLogOut])
+@router.get("/", response_model=List[AuditLogOut])
 async def list_audit_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),

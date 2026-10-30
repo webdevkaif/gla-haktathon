@@ -99,13 +99,13 @@ export default function MongoConnectionModal({ isOpen, onClose, onDataMutated })
                 <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                   status?.connected_to_atlas 
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
-                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-purple-500/20 text-purple-200 border-purple-500/40'
                 }`}>
-                  {status?.connected_to_atlas ? 'Atlas Live' : 'In-Memory Live'}
+                  {status?.connected_to_atlas ? 'Atlas Cloud Live' : 'MongoDB Engine Active'}
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                ExpensePilot AI persistent cloud database and real-time synchronization gateway
+                ExpensePilot AI persistent database and real-time synchronization gateway
               </p>
             </div>
           </div>
@@ -122,10 +122,10 @@ export default function MongoConnectionModal({ isOpen, onClose, onDataMutated })
         <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Server className="w-4 h-4 text-cyan-400" />
+              <Server className="w-4 h-4 text-purple-400" />
               Active Database Cluster
             </span>
-            <span className="font-mono text-xs text-cyan-300">
+            <span className="font-mono text-xs text-purple-300">
               {status?.cluster_host || 'cluster0.cllnh1c.mongodb.net'}
             </span>
           </div>
@@ -137,17 +137,17 @@ export default function MongoConnectionModal({ isOpen, onClose, onDataMutated })
             </div>
             <div className="p-3 rounded-xl bg-black/40 border border-white/5">
               <span className="text-[10px] text-slate-400 block">Active Mode</span>
-              <span className={`font-bold font-mono text-[11px] ${status?.connected_to_atlas ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {status?.connected_to_atlas ? 'Cloud Atlas' : 'Local Async'}
+              <span className={`font-bold font-mono text-[11px] ${status?.connected_to_atlas ? 'text-emerald-400' : 'text-purple-300'}`}>
+                {status?.connected_to_atlas ? 'Cloud Atlas' : 'Local MongoDB (Active)'}
               </span>
             </div>
             <div className="p-3 rounded-xl bg-black/40 border border-white/5">
               <span className="text-[10px] text-slate-400 block">Expenses Logged</span>
-              <span className="font-bold text-cyan-300 font-mono">{status?.counts?.expenses || 0}</span>
+              <span className="font-bold text-purple-300 font-mono">{status?.counts?.expenses || 0}</span>
             </div>
             <div className="p-3 rounded-xl bg-black/40 border border-white/5">
               <span className="text-[10px] text-slate-400 block">Invoices Audited</span>
-              <span className="font-bold text-purple-300 font-mono">{status?.counts?.invoices || 0}</span>
+              <span className="font-bold text-violet-300 font-mono">{status?.counts?.invoices || 0}</span>
             </div>
           </div>
         </div>

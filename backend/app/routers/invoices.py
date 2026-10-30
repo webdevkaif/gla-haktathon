@@ -28,7 +28,44 @@ async def extract_mindee_ocr(file_bytes: bytes, filename: str) -> Optional[Dict[
     return await parse_invoice_document(file_bytes, filename)
 
 
+from fastapi.responses import Response
+from backend.app.services.pdf_generator import generate_roadmap_pdf_bytes
+from backend.app.services.analytics import get_monthly_summary
+
+@router.get("/roadmap-pdf")
+async def download_roadmap_pdf_alias(
+    month: Optional[str] = Query(None),
+    title: Optional[str] = Query(None),
+    notes: Optional[str] = Query(None),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """Direct alias endpoint for executive roadmap PDF download."""
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+    summary = await get_monthly_summary(db, user_id, month)
+    budget_doc = await db.budgets.find_one({"user_id": user_id, "month": month})
+    budget = budget_doc or {"total_budget": 50000.0, "month": month}
+    cursor = db.invoices.find({"user_id": user_id}).sort("date", -1).limit(5)
+    invoices = await cursor.to_list(length=5)
+
+    pdf_bytes = generate_roadmap_pdf_bytes(
+        user_id=user_id,
+        month=month,
+        summary=summary,
+        budget=budget,
+        invoices=invoices,
+        custom_title=title,
+        custom_notes=notes
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="ExpensePilot_Roadmap_{month}.pdf"'}
+    )
+
 @router.get("", response_model=List[InvoiceOut])
+@router.get("/", response_model=List[InvoiceOut])
 async def list_invoices(
     status: Optional[str] = Query(None, description="Filter by status"),
     vendor_id: Optional[str] = Query(None, description="Filter by vendor"),

@@ -770,7 +770,8 @@ DEMO_EXPENSES = [
     {"date": "2026-10-21", "category": "Food", "amount": 4200.0, "description": "Luxury rooftop fine dining celebration", "payment_method": "Card", "force_unusual": True, "reason": "Statistical Outlier: ₹4,200 is 14x your median food expense (₹300)."},
     {"date": "2026-10-22", "category": "Groceries", "amount": 380.0, "description": "Weekly milk & bread supplies", "payment_method": "UPI"},
     {"date": "2026-10-23", "category": "Utilities", "amount": 650.0, "description": "Mobile postpaid recharge", "payment_method": "UPI"},
-    {"date": "2026-10-24", "category": "Shopping", "amount": 1200.0, "description": "Casual shirts weekend sale", "payment_method": "Card"},
+    {"date": "2026-10-24", "category": "Utilities", "amount": 650.0, "description": "Mobile postpaid recharge", "payment_method": "UPI", "force_unusual": True, "reason": "Potential Duplicate: Identical ₹650 utility payment recorded within 24 hours."},
+    {"date": "2026-10-24", "category": "Shopping", "amount": 14500.0, "description": "Ergonomic executive mesh chair & desk", "payment_method": "Card", "force_unusual": True, "reason": "Statistical Outlier: ₹14,500 is 12x higher than category average of ₹1,180."},
     {"date": "2026-10-25", "category": "Food", "amount": 290.0, "description": "Evening snacks & momos", "payment_method": "UPI"},
 ]
 
@@ -856,5 +857,25 @@ async def seed_demo_data(db, user_id: str = "user_default") -> int:
     # Generate anomaly alerts
     from backend.app.services.anomaly import audit_and_generate_alerts
     await audit_and_generate_alerts(db, user_id, "2026-10")
+
+    # Seed paired phone settings
+    from backend.app.services.messaging import DEFAULT_PHONE
+    await db.phone_settings.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "user_id": user_id,
+            "phone_number": DEFAULT_PHONE,
+            "is_connected": True,
+            "channel_sms": True,
+            "channel_whatsapp": True,
+            "channel_telegram": True,
+            "telegram_chat_id": "999753479",
+            "alert_daily_recap": True,
+            "alert_anomaly": True,
+            "alert_budget_warning": True,
+            "connected_at": datetime.utcnow()
+        }},
+        upsert=True
+    )
 
     return len(expense_docs)

@@ -60,8 +60,8 @@ function AppContent() {
     setIsChatOpen(true);
   };
 
-  // Glassmorphism Ambient Theme: 'obsidian' | 'aurora' | 'emerald' | 'minimal'
-  const [bgTheme, setBgTheme] = useState('obsidian');
+  // Glassmorphism Ambient Theme: 'lavender' | 'pearl' | 'minimal'
+  const [bgTheme, setBgTheme] = useState('lavender');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -114,43 +114,43 @@ function AppContent() {
   const unreadAlerts = alerts.filter(a => !a.is_read);
 
   return (
-    <div className="relative min-h-screen bg-[#060a14] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white overflow-hidden">
+    <div className="relative min-h-screen bg-[#090a18] text-slate-100 flex flex-col selection:bg-purple-500/40 selection:text-white overflow-hidden">
       
       {/* =====================================================================
-          EXECUTIVE GLASSMORPHISM AMBIENT BACKDROP
+          EXECUTIVE GLASSMORPHISM AMBIENT BACKDROP (LAVENDER & WHITE MINIMALIST)
           ===================================================================== */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         
         {/* Dynamic Glassmorphism Mesh Gradients */}
-        {bgTheme === 'obsidian' && (
+        {bgTheme === 'lavender' && (
           <>
-            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-cyan-500/15 via-blue-600/10 to-transparent blur-[120px]" />
-            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-blue-600/15 via-indigo-600/10 to-transparent blur-[140px]" />
-            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-emerald-500/12 blur-[130px]" />
+            <div className="absolute -top-32 -left-32 w-[650px] h-[650px] rounded-full bg-gradient-to-br from-purple-500/25 via-violet-500/15 to-transparent blur-[130px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-indigo-500/20 via-purple-600/15 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-fuchsia-500/15 blur-[140px]" />
+            <div className="absolute top-1/2 left-1/3 w-[450px] h-[450px] rounded-full bg-purple-400/10 blur-[150px]" />
           </>
         )}
 
-        {bgTheme === 'aurora' && (
+        {bgTheme === 'pearl' && (
           <>
-            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-purple-600/20 via-pink-600/10 to-transparent blur-[130px]" />
-            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-indigo-600/20 via-violet-600/10 to-transparent blur-[140px]" />
-            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-cyan-500/15 blur-[130px]" />
+            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-white/20 via-purple-200/15 to-transparent blur-[120px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-violet-200/15 via-slate-100/10 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-white/10 blur-[130px]" />
           </>
         )}
 
-        {bgTheme === 'emerald' && (
+        {bgTheme === 'minimal' && (
           <>
-            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-transparent blur-[130px]" />
-            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-teal-600/15 via-cyan-600/10 to-transparent blur-[140px]" />
-            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-amber-500/10 blur-[130px]" />
+            <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-purple-900/15 blur-[150px]" />
+            <div className="absolute -bottom-36 right-10 w-[500px] h-[500px] rounded-full bg-slate-800/20 blur-[150px]" />
           </>
         )}
 
         {/* Ambient Dark Frosted Vignette for 100% Contrast & Crisp Readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060a14]/90 via-[#060a14]/75 to-[#060a14]/95 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#090a18]/90 via-[#090a18]/80 to-[#090a18]/95 backdrop-blur-[1px]" />
         
         {/* Subtle Frosted Grid Texture */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:24px_24px] opacity-35" />
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(216,180,254,0.06)_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
 
       {/* Toast Notification */}
@@ -264,64 +264,54 @@ function AppContent() {
       <button
         id="fab-agent-chat"
         onClick={() => setIsChatOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm shadow-xl shadow-cyan-500/30 hover:scale-105 transition-all group"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-xl shadow-purple-500/25 hover:scale-105 transition-all group"
       >
         <div className="relative">
-          <Bot className="w-5 h-5" />
+          <Bot className="w-5 h-5 text-purple-200" />
           <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-300 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-400"></span>
           </span>
         </div>
         <span>Ask Pilot AI</span>
       </button>
 
-      {/* Glassmorphism Ambient Theme Controller */}
-      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-2 p-1.5 px-3 rounded-2xl bg-slate-900/90 border border-white/10 backdrop-blur-2xl shadow-2xl">
-        <span className="text-xs font-mono font-bold text-slate-300 px-2 flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Glass Theme:</span>
+      {/* Executive Ambient Theme Controller */}
+      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-2 p-1.5 px-3 rounded-2xl bg-[#0b0d18]/90 border border-white/[0.08] backdrop-blur-2xl shadow-2xl">
+        <span className="text-xs font-semibold text-slate-400 px-1.5 flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+          <span>Theme:</span>
         </span>
         <button
-          onClick={() => setBgTheme('obsidian')}
+          onClick={() => setBgTheme('lavender')}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            bgTheme === 'obsidian' 
-              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 border border-white/20' 
-              : 'text-slate-400 hover:text-white hover:bg-white/10'
+            bgTheme === 'lavender' 
+              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/25 border border-violet-400/30' 
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
           }`}
         >
-          💎 Obsidian
+          Obsidian Violet
         </button>
         <button
-          onClick={() => setBgTheme('aurora')}
+          onClick={() => setBgTheme('pearl')}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            bgTheme === 'aurora' 
-              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-white/20' 
-              : 'text-slate-400 hover:text-white hover:bg-white/10'
+            bgTheme === 'pearl' 
+              ? 'bg-gradient-to-r from-slate-200 to-slate-100 text-slate-950 shadow-md shadow-white/20 border border-white/40' 
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
           }`}
         >
-          🔮 Aurora
-        </button>
-        <button
-          onClick={() => setBgTheme('emerald')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            bgTheme === 'emerald' 
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-white/20' 
-              : 'text-slate-400 hover:text-white hover:bg-white/10'
-          }`}
-        >
-          🌲 Emerald
+          Platinum Light
         </button>
         <button
           onClick={() => setBgTheme('minimal')}
-          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             bgTheme === 'minimal' 
-              ? 'bg-slate-700 text-white border border-white/20' 
-              : 'text-slate-500 hover:text-white hover:bg-white/5'
+              ? 'bg-slate-800 text-white border border-white/20' 
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
           }`}
-          title="Minimal Pure Glass"
+          title="Minimal Slate"
         >
-          🌑 Pure
+          Pure Slate
         </button>
       </div>
 

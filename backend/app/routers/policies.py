@@ -8,6 +8,7 @@ from backend.app.models import serialize_docs, serialize_doc
 router = APIRouter(prefix="/api/policies", tags=["Corporate Policies"])
 
 @router.get("", response_model=List[PolicyOut])
+@router.get("/", response_model=List[PolicyOut])
 async def list_policies(
     category: Optional[str] = Query(None, description="Filter: Meals, Travel, Hotel, etc."),
     q: Optional[str] = Query(None, description="Search keyword"),
@@ -33,6 +34,24 @@ async def list_policies(
         return [serialize_doc(p) for p in SAMPLE_POLICIES]
 
     return serialize_docs(docs)
+
+
+@router.get("/qa")
+async def policy_qa_endpoint(
+    query: Optional[str] = Query(None, description="Natural language question about corporate expense policy"),
+    q: Optional[str] = Query(None, description="Natural language question short query alias"),
+    current_user = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    """
+    Evaluates policy questions and returns matching citations, per-diems, and guidance.
+    Accepts either ?query=... or ?q=...
+    """
+    target_q = query or q
+    if not target_q or not target_q.strip():
+        raise HTTPException(status_code=400, detail="Missing required 'query' or 'q' query parameter.")
+    from backend.app.agent.tools import tool_policy_qa
+    return await tool_policy_qa(db, target_q.strip(), current_user)
 
 
 @router.get("/{section_id}", response_model=PolicyOut)

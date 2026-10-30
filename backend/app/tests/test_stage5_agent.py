@@ -122,6 +122,15 @@ async def test_stage5_agent():
     assert chain_check["valid"] is True
     print(f"-> Pass: Cryptographic chain intact across all {chain_check['total']} entries.")
 
+    # TEST 10: Device Calling Functionality
+    print("\n[Test 10] Device Calling via Agent...")
+    res_call = await process_agent_message(db, user_id="emp_john", message="Call my device with spending update")
+    assert res_call["tool_called"] == "call_device"
+    assert res_call["call_info"] is not None
+    assert "tel_url" in res_call["call_info"]
+    assert "Calling Your Personal Device" in res_call["reply"] or "tel:" in res_call["reply"]
+    print(f"-> Pass: Device calling successfully executed: {res_call['call_info']['tel_url']}")
+
     print("\nALL STAGE 5 AGENT TESTS PASSED SUCCESSFULLY! 🚀")
 
 run_tests = test_stage5_agent

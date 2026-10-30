@@ -106,36 +106,36 @@ export default function GlassmorphismExecutiveHUD({
 
         {/* Style Preset Selector & Fullscreen */}
         <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-black/40 border border-white/10 backdrop-blur-xl text-xs">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-black/50 border border-white/[0.08] backdrop-blur-xl text-xs">
             <button
               onClick={() => setGlassTheme('OBSIDIAN')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
                 glassTheme === 'OBSIDIAN'
-                  ? 'bg-cyan-500 text-white shadow-md'
+                  ? 'bg-cyan-500 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              💎 Obsidian
+              Obsidian
             </button>
             <button
               onClick={() => setGlassTheme('AURORA')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
                 glassTheme === 'AURORA'
-                  ? 'bg-purple-600 text-white shadow-md'
+                  ? 'bg-violet-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              🔮 Aurora
+              Aurora
             </button>
             <button
               onClick={() => setGlassTheme('QUANTUM')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
                 glassTheme === 'QUANTUM'
-                  ? 'bg-emerald-600 text-white shadow-md'
+                  ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              ⚡ Quantum
+              Quantum
             </button>
           </div>
 
@@ -280,7 +280,7 @@ export default function GlassmorphismExecutiveHUD({
           {onNavigateTab && (
             <button
               type="button"
-              onClick={() => onNavigateTab('analytics')}
+              onClick={() => onNavigateTab('invoices')}
               className="px-4 py-2.5 rounded-xl font-bold text-xs bg-white/[0.05] hover:bg-white/[0.09] text-slate-200 border border-white/10 hover:border-purple-400/40 transition-all flex items-center gap-2 cursor-pointer"
             >
               <Compass className="w-4 h-4 text-purple-400" />

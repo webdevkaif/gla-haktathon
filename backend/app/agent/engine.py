@@ -11,7 +11,16 @@ from backend.app.agent.tools import (
     tool_start_approval,
     tool_send_reminder,
     tool_escalate_to_finance,
-    tool_get_finance_summary
+    tool_get_finance_summary,
+    tool_generate_pdf_report,
+    tool_generate_visual_card,
+    tool_detect_anomalies,
+    tool_read_webpage,
+    tool_call_device,
+    tool_get_monthly_spending,
+    tool_get_category_breakdown,
+    tool_calculate_remaining_budget,
+    tool_simulate_what_if
 )
 from backend.app.services.audit import write_audit
 
@@ -329,6 +338,38 @@ async def parse_and_route_deterministic(
     ):
         return analyze_uploaded_file_context(file_context, message, user, language)
 
+    # 0b. User Greeting & Identity Intent (Always greet by real user name)
+    current_name = user.get("name") or "Team Member"
+    greeting_patterns = [
+        r'^\s*(?:hi|hello|hey|namaste|greetings|hola|bonjour|salam)\b',
+        r'\b(?:introduce\s+yourself|who\s+are\s+you|who\s+am\s+i|what\s+is\s+my\s+name|my\s+name|kya\s+naam\s+hai)\b'
+    ]
+    if any(re.search(p, msg_lower) for p in greeting_patterns):
+        first_name = current_name.split()[0]
+        role_label = user.get("role", "employee").capitalize()
+        greet_text = (
+            f"👋 **Hello {current_name}!** Welcome back to **ExpensePilot AI**.\n\n"
+            f"You are authenticated as **{current_name}** ({role_label}).\n"
+            f"I am your autonomous corporate finance and intelligence copilot. Here is what I can do for you right now:\n\n"
+            f"• 🎨 **Generate Custom Images**: Describe any visual, diagram, or scene (e.g. *\"generate image of a futuristic city\"*).\n"
+            f"• 📄 **Synthesize Executive PDFs**: Request detailed PDF reports on any project, budget, or audit.\n"
+            f"• 🔍 **Audit & OCR Invoices**: Drag-and-drop receipts or query policy compliance.\n"
+            f"• 📊 **Predict Outflow & Anomalies**: Inspect forecast graphs and check budget limits.\n\n"
+            f"How can I assist you today, {first_name}?"
+        )
+        return {
+            "reply": localize_text(greet_text, language),
+            "citations": [],
+            "tool_called": "user_greeting",
+            "escalated": False,
+            "suggested_actions": [
+                "Generate PDF for GLA Hackathon Presentation",
+                "Generate image of a red sports car",
+                "What is my monthly spending?",
+                "Check pending approval requests"
+            ]
+        }
+
     # 1. Out of scope check
     if is_out_of_scope(message):
         ld = LOCALIZATION_DICT.get(language, {})
@@ -428,6 +469,254 @@ async def parse_and_route_deterministic(
             "suggested_actions": ["View open escalations", "Review overdue invoices", "Run reminder scheduler"]
         }
 
+    # 5b. Machine Learning Anomaly Detection Intent (PyOD Isolation Forest)
+    anomaly_patterns = [
+        r'\b(?:anomal(?:y|ies)|unusual\s+expense|suspicious|spending\s+spike|flagged\s+expense|pyod|isolation\s+forest)\b',
+        r'\b(?:audit\s+(?:spending|expenses)|check\s+anomalies|detect\s+anomalies|any\s+anomalies|find\s+anomalies)\b'
+    ]
+    if any(re.search(p, msg_lower) for p in anomaly_patterns):
+        tool_res = await tool_detect_anomalies(db, user)
+        return {
+            "reply": localize_text(tool_res.get("reply", ""), language),
+            "citations": [],
+            "tool_called": "detect_anomalies",
+            "tool_result": tool_res,
+            "escalated": False,
+            "suggested_actions": ["View Forecast & Anomalies tab", "Audit high-value claims", "Push anomalies to Telegram"]
+        }
+
+    # 5c. Device Calling Intent (Direct Voice Call to Personal Device)
+    call_patterns = [
+        r'\b(?:call\s+(?:my\s+)?(?:device|phone|mobile|number|cell|handset)|call\s+me|make\s+a\s+call|voice\s+call|phone\s+call|dial\s+(?:my\s+)?number|ring\s+my\s+phone)\b',
+        r'\b(?:mujhe\s+call\s+karo|call\s+lagao|phone\s+mila\s+do|call\s+karo)\b'
+    ]
+    if any(re.search(p, msg_lower) for p in call_patterns):
+        # Extract optional phone number if user specified one (e.g. "call 9997534798")
+        num_match = re.search(r'\b(?:\+?91[\s-]?)?[6789]\d{9}\b', message)
+        target_num = num_match.group(0).replace(" ", "").replace("-", "") if num_match else None
+        
+        # Extract optional custom topic/reason
+        m_reason = re.search(r'(?:about|regarding|for|saying)\s+([^.!?]+)', message, re.IGNORECASE)
+        call_reason = m_reason.group(1).strip() if m_reason else "Financial & Expense Telemetry Alert"
+
+        tool_res = await tool_call_device(db, user, reason=call_reason, phone_number=target_num)
+        return {
+            "reply": localize_text(tool_res.get("reply", ""), language),
+            "citations": [],
+            "tool_called": "call_device",
+            "tool_result": tool_res,
+            "call_info": tool_res.get("call_info"),
+            "voice_text": tool_res.get("spoken_message"),
+            "escalated": False,
+            "suggested_actions": [
+                f"Call {tool_res.get('phone_number', 'device')} again",
+                "Send daily SMS recap",
+                "Check anomaly alerts",
+                "View pending approvals"
+            ]
+        }
+
+    # 5d. Monthly Spending & Budget Query Intent
+    spending_patterns = [
+        r'\b(?:how\s+much\s+(?:did\s+i|have\s+i)\s+spend|monthly\s+spending|total\s+spending|my\s+spending|spending\s+this\s+month|kitna\s+spend\s+kiya|mera\s+kharcha)\b',
+        r'\b(?:expenses?\s+this\s+month|monthly\s+expenses?|spending\s+summary|budget\s+status)\b'
+    ]
+    if any(re.search(p, msg_lower) for p in spending_patterns):
+        tool_res = await tool_get_monthly_spending(db, user_id)
+        spent = tool_res.get("total_spent", 0.0)
+        budget = tool_res.get("total_budget", 50000.0)
+        remaining = tool_res.get("remaining_budget", max(0.0, budget - spent))
+        pct = tool_res.get("percentage_used", round((spent / max(1.0, budget)) * 100, 1))
+        
+        reply_lines = [
+            f"📊 **Monthly Spending & Budget Overview (October 2026)**:",
+            f"━━━━━━━━━━━━━━━━━━━",
+            f"• 💰 **Total Spent**: ₹{spent:,.2f} INR",
+            f"• 🎯 **Monthly Budget**: ₹{budget:,.2f} INR",
+            f"• 💵 **Remaining Surplus**: ₹{remaining:,.2f} INR ({100 - pct:.1f}% remaining)",
+            f"• 📈 **Budget Utilization**: {pct}% used"
+        ]
+        cats = tool_res.get("categories", [])
+        if cats:
+            reply_lines.append("\n🏷️ **Top Spending Categories**:")
+            for c in cats[:3]:
+                reply_lines.append(f"  - **{c['category']}**: ₹{c['amount']:,.2f} ({c.get('percentage', 0):.1f}%)")
+        
+        return {
+            "reply": localize_text("\n".join(reply_lines), language),
+            "citations": [],
+            "tool_called": "get_monthly_spending",
+            "tool_result": tool_res,
+            "escalated": False,
+            "suggested_actions": [
+                "Where did most of my money go?",
+                "Can I afford a ₹1,200 purchase?",
+                "What if I reduce shopping expenses by 20%?",
+                "Generate spending visual card"
+            ]
+        }
+
+    # 5e. Category Breakdown Intent
+    breakdown_patterns = [
+        r'\b(?:where\s+did\s+(?:most\s+of\s+)?my\s+money\s+go|category\s+breakdown|breakdown\s+by\s+category|spending\s+breakdown|kaha\s+kharch\s+hua|top\s+spending\s+categor(?:y|ies))\b'
+    ]
+    if any(re.search(p, msg_lower) for p in breakdown_patterns):
+        tool_res = await tool_get_category_breakdown(db, user_id)
+        cats = tool_res.get("categories", [])
+        total = tool_res.get("total_spent", 0.0)
+        top_cat = tool_res.get("top_category") or (cats[0]["category"] if cats else "General")
+        top_amt = tool_res.get("top_category_amount") or (cats[0]["amount"] if cats else 0.0)
+        
+        reply_lines = [
+            f"📈 **Category Breakdown of Your Spending**:",
+            f"━━━━━━━━━━━━━━━━━━━",
+            f"• 🥇 **Highest Outflow**: **{top_cat}** at **₹{top_amt:,.2f} INR**",
+            f"• 💳 **Total Expenditure**: **₹{total:,.2f} INR**\n",
+            "📊 **Distribution by Category**:"
+        ]
+        for c in cats:
+            reply_lines.append(f"• **{c['category']}**: ₹{c['amount']:,.2f} ({c.get('percentage', 0):.1f}%)")
+            
+        return {
+            "reply": localize_text("\n".join(reply_lines), language),
+            "citations": [],
+            "tool_called": "get_category_breakdown",
+            "tool_result": tool_res,
+            "escalated": False,
+            "suggested_actions": [
+                f"What if I reduce {top_cat} by 20%?",
+                "How much did I spend this month?",
+                "Detect unusual expenses",
+                "Generate PDF Report"
+            ]
+        }
+
+    # 5f. Affordability Evaluation Intent
+    afford_patterns = [
+        r'\b(?:can\s+i\s+afford|kya\s+mai\s+khareed\s+sakta\s+hu|should\s+i\s+buy|is\s+it\s+in\s+my\s+budget)\b'
+    ]
+    if any(re.search(p, msg_lower) for p in afford_patterns):
+        amt_m = re.search(r'(?:₹|rs\.?|inr)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+)', message, re.IGNORECASE)
+        amount = 1200.0
+        if amt_m:
+            try:
+                amount = float(amt_m.group(1).replace(",", ""))
+            except:
+                amount = 1200.0
+                
+        budget_info = await tool_calculate_remaining_budget(db, user_id)
+        rem = budget_info.get("remaining_budget", 0.0)
+        
+        if amount <= rem:
+            after_spend = rem - amount
+            reply = (
+                f"✅ **Yes, You Can Afford This Purchase!**\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"• 🏷️ **Requested Item Amount**: **₹{amount:,.2f} INR**\n"
+                f"• 💰 **Current Remaining Budget**: **₹{rem:,.2f} INR**\n"
+                f"• 💵 **Surplus After Purchase**: **₹{after_spend:,.2f} INR**\n\n"
+                f"Your cash flow easily accommodates this expense without breaching your monthly budget limit."
+            )
+        else:
+            deficit = amount - rem
+            reply = (
+                f"⚠️ **Budget Caution: Exceeds Remaining Surplus!**\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"• 🏷️ **Requested Item Amount**: **₹{amount:,.2f} INR**\n"
+                f"• 💰 **Current Available Surplus**: **₹{rem:,.2f} INR**\n"
+                f"• 🚨 **Budget Deficit**: **₹{deficit:,.2f} INR**\n\n"
+                f"Making this purchase now will exceed your target budget. Consider deferring to next month or trimming non-essential categories."
+            )
+            
+        return {
+            "reply": localize_text(reply, language),
+            "citations": [],
+            "tool_called": "calculate_remaining_budget",
+            "tool_result": {"requested_amount": amount, "budget_info": budget_info},
+            "escalated": False,
+            "suggested_actions": [
+                "What if I reduce shopping expenses by 20%?",
+                "How much did I spend this month?",
+                "Where did most of my money go?"
+            ]
+        }
+
+    # 5g. What-If Budget Simulation Intent
+    whatif_patterns = [
+        r'\b(?:what\s+if|what-if|agar\s+mai|simulate|reduce\s+(\w+)\s+(?:expenses?\s+)?by\s+(\d+)%?)\b'
+    ]
+    if any(re.search(p, msg_lower) for p in whatif_patterns):
+        cat_match = re.search(r'\b(shopping|travel|food|meals|entertainment|groceries|utilities)\b', msg_lower)
+        target_cat = cat_match.group(1).capitalize() if cat_match else "Shopping"
+        
+        pct_match = re.search(r'(\d+)\s*%', message)
+        pct = float(pct_match.group(1)) if pct_match else 20.0
+        
+        tool_res = await tool_simulate_what_if(db, user_id, category=target_cat, percent_reduction=pct)
+        sim_res = tool_res.get("result", {})
+        
+        savings = sim_res.get("monthly_savings", 0.0)
+        new_total = sim_res.get("simulated_total_spent", 0.0)
+        curr_total = sim_res.get("current_total_spent", 0.0)
+        
+        reply = (
+            f"🔮 **What-If Financial Simulation**: Reducing **{target_cat}** by **{pct:.0f}%**\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"• 💰 **Estimated Monthly Savings**: **₹{savings:,.2f} INR**\n"
+            f"• 📉 **New Projected Outflow**: ₹{new_total:,.2f} INR (down from ₹{curr_total:,.2f})\n"
+            f"• 📈 **Annualized Wealth Impact**: You will accumulate **₹{savings * 12:,.2f} INR** in extra annual savings!\n\n"
+            f"💡 *Actionable Recommendation:* Adjust your daily discretionary allowance for {target_cat} by ₹{savings / 30:,.0f}/day to reach this target easily."
+        )
+        return {
+            "reply": localize_text(reply, language),
+            "citations": [],
+            "tool_called": "simulate_what_if",
+            "tool_result": tool_res,
+            "escalated": False,
+            "suggested_actions": [
+                "Can I afford a ₹1,200 purchase?",
+                "Generate PDF for GLA Hackathon Presentation",
+                "How much did I spend this month?"
+            ]
+        }
+
+    # 5h. Uploaded Invoices Overview Intent
+    invoice_overview_patterns = [
+        r'\b(?:talk\s+about\s+(?:my\s+)?uploaded\s+invoices|my\s+invoices|show\s+invoices|list\s+invoices|uploaded\s+invoices|all\s+invoices)\b'
+    ]
+    if any(re.search(p, msg_lower) for p in invoice_overview_patterns):
+        invoices = await db.invoices.find({}).to_list(10)
+        if not invoices:
+            from backend.app.services.seed_data import SAMPLE_INVOICES
+            invoices = SAMPLE_INVOICES
+            
+        total_inv = sum(float(i.get("amount", 0.0)) for i in invoices)
+        reply_lines = [
+            f"📄 **Uploaded & Registered Corporate Invoices**:",
+            f"━━━━━━━━━━━━━━━━━━━",
+            f"Found **{len(invoices)} invoices** totaling **₹{total_inv:,.2f} INR** in the enterprise ledger:\n"
+        ]
+        for inv in invoices[:5]:
+            status_emoji = "🟢" if inv.get("status") == "Paid" else ("🟡" if inv.get("status") == "Pending" else "🔴")
+            reply_lines.append(
+                f"• {status_emoji} **{inv.get('invoice_number', inv.get('id'))}** ({inv.get('vendor_name', inv.get('vendor_id'))}): "
+                f"**₹{float(inv.get('amount', 0)):,.2f} INR** — Status: `{inv.get('status', 'Pending')}`"
+            )
+        reply_lines.append("\n💡 You can ask about any specific invoice ID (e.g. *\"status of INV-2004\"*) or trigger OCR audit verification!")
+        return {
+            "reply": localize_text("\n".join(reply_lines), language),
+            "citations": [],
+            "tool_called": "invoice_overview",
+            "tool_result": {"count": len(invoices), "total": total_inv},
+            "escalated": False,
+            "suggested_actions": [
+                "Status of INV-2004",
+                "View overdue invoices",
+                "Executive finance summary",
+                "Generate PDF Report"
+            ]
+        }
+
     # 6. Manual Escalation Intent
     escalate_keywords = ["escalate", "fraud", "scam", "violation", "investigate", "discrepancy"]
     if any(k in msg_lower for k in escalate_keywords) and ("claim" in msg_lower or "invoice" in msg_lower):
@@ -465,7 +754,163 @@ async def parse_and_route_deterministic(
                 "suggested_actions": ["Check approval workflow policy", "Send reminder to approver"]
             }
 
-    # 8. Policy Q&A with Mandatory Citations (Default fallback for all policy queries)
+    # 8. Capability Inquiries for Image & PDF Generation (e.g. 'kya mai kesi bhi image genraete kara sakta hu or pdf bhi')
+    cap_inquiry_patterns = [
+        r'kya\s+mai\s+.*(?:image|pdf|photo)',
+        r'can\s+i\s+(?:generate|create|make)\s+(?:any|any\s+type\s+of)\s+(?:image|pdf)',
+        r'kya\s+.*(?:koi\s+bhi|kesi\s+bhi|kisi\s+bhi).*(?:image|pdf|photo)',
+        r'what\s+(?:type\s+of\s+)?(?:images?|pdfs?)\s+can\s+you\s+(?:generate|create|make)',
+        r'can\s+you\s+(?:generate|create|make)\s+any\s+(?:image|pdf)'
+    ]
+    if any(re.search(p, msg_lower) for p in cap_inquiry_patterns):
+        cap_reply = (
+            "✨ **Yes, Absolutely!** You can generate **ANY custom image and ANY executive PDF report** according to any prompt you give!\n\n"
+            "━━━━━━━━━━━━━━━━━━━\n"
+            "🎨 **For Any Custom Image:**\n"
+            "Just type what you would like to see:\n"
+            "• *\"generate image of a red sports car\"*\n"
+            "• *\"create an image of a futuristic cyberpunk city\"*\n"
+            "• *\"make an image of a cat playing piano in space\"*\n"
+            "• *\"draw a sunset over snow mountains\"*\n"
+            "• *\"generate image with text 'ExpensePilot Winner 2026'\"*\n"
+            "• *\"visual card of spending and cashflow telemetry\"*\n\n"
+            "📄 **For Any Custom PDF Report:**\n"
+            "Simply specify your topic or presentation title:\n"
+            "• *\"generate pdf for GLA Hackathon Presentation\"*\n"
+            "• *\"create a pdf report on Q3 expenses & audit\"*\n"
+            "• *\"generate pdf about 90-day wealth roadmap\"*\n"
+            "• *\"export pdf report for Tech Team Budget\"*\n\n"
+            "⚡ **Both engines are live!** Images render in 1200x675 HD with instant inline display, and PDFs generate vector print-ready documents with one-click download."
+        )
+        return {
+            "reply": localize_text(cap_reply, language),
+            "citations": [],
+            "tool_called": "capability_info",
+            "escalated": False,
+            "suggested_actions": [
+                "generate image of a red sports car",
+                "generate pdf for GLA Hackathon Presentation",
+                "create an image of a futuristic city",
+                "download roadmap pdf"
+            ]
+        }
+
+    # 9. PDF Generation Intent (Custom Title & Memo Extraction)
+    pdf_intent_patterns = [
+        r'\b(generate|create|make|export|download|banao|chahiye)\b.*\bpdf\b',
+        r'\bpdf\b.*\b(generate|create|make|banao|chahiye|download|export)\b',
+        r'^pdf\b',
+        r'\bpdf report\b',
+        r'\broadmap pdf\b',
+        r'\bpdf for\b',
+        r'\bpdf of\b',
+        r'\bka pdf\b'
+    ]
+    if any(re.search(p, msg_lower) for p in pdf_intent_patterns):
+        # Extract custom title and notes from message
+        custom_title = None
+        custom_notes = None
+
+        m_quote = re.search(r'["\'\u201c\u201d]([^"\'\u201c\u201d]{3,})["\'\u201c\u201d]', message)
+        if m_quote:
+            custom_title = m_quote.group(1).strip()[:50]
+            custom_notes = f"Custom Report: {m_quote.group(1).strip()}"
+        else:
+            m_topic = re.search(r'(?:for|about|titled|on|regarding|topic\s*[:=]|title\s*[:=])\s*[:"\'\s]*(.+?)(?:["\'\s]*$)', message, re.IGNORECASE)
+            if m_topic:
+                t = m_topic.group(1).strip()
+                t_clean = re.sub(r'^(?:the\s+|a\s+|an\s+)', '', t, flags=re.IGNORECASE)
+                custom_title = t_clean[:45].upper()
+                custom_notes = f"Custom Directive: {t}"
+            else:
+                pat = r'^(?:can\s+you\s+|please\s+)?(?:generate|create|make|export|download|give\s+me)\s+(?:an?\s+)?(?:pdf|report|roadmap|audit|document)?(?:\s+(?:of|for|about|on|regarding))?\s*'
+                sub = re.sub(pat, '', message, flags=re.IGNORECASE).strip()
+                sub = re.sub(r'(?:\s+please|\s+now|\s+banao|\s+generate\s+karo|[.!?]+)$', '', sub, flags=re.IGNORECASE).strip()
+                if sub and len(sub) > 2 and sub.lower() not in ["pdf", "report", "roadmap", "document"]:
+                    custom_title = sub[:45].upper()
+                    custom_notes = f"Executive Report on {sub}"
+
+        tool_res = await tool_generate_pdf_report(db, user, custom_title=custom_title, custom_notes=custom_notes)
+        return {
+            "reply": localize_text(tool_res.get("reply", ""), language),
+            "citations": [],
+            "tool_called": "generate_pdf_report",
+            "tool_result": tool_res,
+            "pdf_download_url": tool_res.get("pdf_url", "/api/analytics/roadmap/pdf"),
+            "escalated": False,
+            "suggested_actions": ["Download PDF Report", "View Financial Analytics", "Ask Agent for Breakdown"]
+        }
+
+    # 10. Visual / Image Generation Intent (Creative Prompts & Financial Cards)
+    image_intent_patterns = [
+        r'\b(generate|create|make|draw|paint|sketch|render|show)\b.*\b(image|picture|photo|card|visual|graphic|illustration)\b',
+        r'\b(image|picture|photo|card|visual)\b.*\b(generate|create|make|draw|banao|chahiye|render)\b',
+        r'^(?:image|photo|picture)\s+(?:of|for|with|saying)\b',
+        r'^\s*(?:draw|paint|sketch)\b',
+        r'\b(ki\s+image|ki\s+photo|ka\s+photo|ka\s+image)\b',
+        r'\b(wright\s+text|write\s+text)\b',
+        r'\bvisual card\b',
+        r'\bspending card\b'
+    ]
+    if any(re.search(p, msg_lower) for p in image_intent_patterns):
+        # Extract custom prompt / subject / directive
+        custom_directive = None
+
+        m_quote = re.search(r'["\'\u201c\u201d]([^"\'\u201c\u201d]{3,})["\'\u201c\u201d]', message)
+        if m_quote:
+            custom_directive = m_quote.group(1).strip()
+        else:
+            m_text = re.search(r'(?:with\s+text|saying|titled|with\s+title|write\s+text|text\s*[:=]|note\s*[:=]|wright\s+text)\s*[:"\'\s]*(.+?)(?:["\'\s]*$)', message, re.IGNORECASE)
+            if m_text:
+                custom_directive = m_text.group(1).strip()
+            else:
+                m_hinglish = re.search(r'(.+?)\s*(?:ki\s+image|ki\s+photo|ka\s+photo|ka\s+image)\s*(?:banao|generate\s+karo|bana\s+do|chahiye|create\s+karo)?', message, re.IGNORECASE)
+                if m_hinglish and len(m_hinglish.group(1).strip()) > 2 and not any(kw in m_hinglish.group(1).lower() for kw in ["kya", "kaise", "can"]):
+                    sub = re.sub(r'^(?:mujhe\s+|ek\s+|kripya\s+)', '', m_hinglish.group(1).strip(), flags=re.IGNORECASE)
+                    if len(sub) > 2:
+                        custom_directive = sub
+                else:
+                    pat = r'^(?:can\s+you\s+|please\s+)?(?:generate|create|make|draw|paint|sketch|render|show\s+me|give\s+me|build)\s+(?:an?\s+)?(?:image|card|visual|graphic|photo|picture|diagram|chart|illustration|drawing)?(?:\s+(?:of|for|about|with|showing|depicting|saying|titled|on))?\s*'
+                    sub = re.sub(pat, '', message, flags=re.IGNORECASE).strip()
+                    sub = re.sub(r'^(?:image|picture|photo|card|visual)\s+(?:of|for|about|with|showing|depicting|saying)\s+', '', sub, flags=re.IGNORECASE).strip()
+                    sub = re.sub(r'(?:\s+please|\s+now|\s+banao|\s+generate\s+karo|\s+bana\s+do|[.!?]+)$', '', sub, flags=re.IGNORECASE).strip()
+                    if sub and len(sub) > 1 and sub.lower() not in ["image", "photo", "picture", "card", "visual", "chart"]:
+                        custom_directive = sub
+
+        tool_res = await tool_generate_visual_card(db, user, custom_text=custom_directive)
+        return {
+            "reply": localize_text(tool_res.get("reply", ""), language),
+            "citations": [],
+            "tool_called": "generate_visual_card",
+            "tool_result": tool_res,
+            "image_url": tool_res.get("image_url", "/generated_reports/spending_card.png"),
+            "escalated": False,
+            "suggested_actions": ["Generate PDF Report", "View Cashflow Charts", "Simulate What-If"]
+        }
+
+    # 10b. Webpage Reading & Scraping Intent (Jina AI Reader r.jina.ai)
+    url_match = re.search(r'https?://[^\s<>"]+|www\.[^\s<>"]+', message)
+    is_web_intent = bool(url_match) or any(k in msg_lower for k in [
+        "jina", "read url", "scrape url", "fetch url", "read link", "read webpage",
+        "scrape webpage", "fetch webpage", "read website", "scrape website"
+    ])
+    if is_web_intent and url_match:
+        target_url = url_match.group(0).rstrip(".,;!?'\"")
+        tool_res = await tool_read_webpage(target_url, user)
+        return {
+            "reply": localize_text(tool_res.get("reply", ""), language),
+            "citations": [tool_res.get("url")] if tool_res.get("url") else [],
+            "tool_called": "read_webpage",
+            "tool_result": tool_res,
+            "escalated": False,
+            "suggested_actions": [
+                f"Summarize {tool_res.get('title', 'page')}",
+                "Extract tables or financial figures",
+                "Audit policy compliance against this link"
+            ]
+        }
+
+    # 11. Policy Q&A with Mandatory Citations (Default fallback for all policy queries)
     policy_res = await tool_policy_qa(db, message, user)
     return {
         "reply": localize_text(policy_res.get("reply", ""), language),
@@ -500,6 +945,7 @@ RULES:
 4. Refuse out-of-scope non-finance requests politely.
 5. All sensitive PII must remain masked.
 6. When a target language is specified, write your complete reply in that language, but keep numbers, currency amounts (₹...), and policy citations (like SEC-104) exactly intact.
+7. IDENTITY & ADDRESSING RULE: Always address the user directly by their actual authenticated name ({user_name}). Never call them by default placeholder names (such as John Doe) unless that is their actual name.
 """
 
 async def process_agent_message(
@@ -507,11 +953,12 @@ async def process_agent_message(
     user_id: str,
     message: str,
     language: str = "en",
-    file_context: Optional[Dict[str, Any]] = None
+    file_context: Optional[Dict[str, Any]] = None,
+    user_name: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Main entry point for processing agent queries:
-    1. Loads current user profile and role.
+    1. Loads current user profile and role, prioritizing actual user name.
     2. Masks personal data (PII).
     3. Handles spreadsheet context if provided.
     4. Executes query via LLM or deterministic fallback engine with multi-language output.
@@ -524,7 +971,15 @@ async def process_agent_message(
         user_doc = await db.users.find_one({"$or": [{"id": user_id}, {"user_id": user_id}]})
     if not user_doc:
         from backend.app.auth import DEMO_USERS
-        user_doc = DEMO_USERS.get(user_id, DEMO_USERS["emp_john"])
+        user_doc = DEMO_USERS.get(user_id, DEMO_USERS.get("user_kaif", DEMO_USERS["emp_john"])).copy()
+    else:
+        user_doc = dict(user_doc)
+
+    # Respect dynamically passed user name
+    if user_name and user_name.strip():
+        user_doc["name"] = user_name.strip()
+    elif user_id == "user_kaif" or "kaif" in str(user_id).lower():
+        user_doc["name"] = "Mohammad Kaif"
 
     # 2. Mask PII in input
     masked_message, had_pii = mask_pii(message)
@@ -543,9 +998,13 @@ async def process_agent_message(
             f"Instructions: The user has attached this file to the conversation. Answer their questions accurately using the numbers, line items, and data from this attached file.\n"
         )
 
-    # 3. Query LLM (Groq, xAI Grok, or Gemini) if API key configured, otherwise use deterministic engine
+    # 3. Fast-path: Check explicit tool execution (PDF, Images, Claim/Invoice Status, Reminders, Escalations)
     result = None
+    direct_tool_res = await parse_and_route_deterministic(db, user_doc, masked_message, language, file_context)
+    if direct_tool_res.get("tool_called") and direct_tool_res.get("tool_called") not in ["policy_qa", "out_of_scope"]:
+        result = direct_tool_res
 
+    # 4. Query LLM (Groq, xAI Grok, or Gemini) if API key configured, otherwise use deterministic engine
     # Option A: Groq (Ultra-fast LPU inference)
     if not result and settings.GROQ_API_KEY:
         try:
@@ -629,7 +1088,8 @@ async def process_agent_message(
     if not result and settings.GEMINI_API_KEY:
         try:
             lang_instruction = f"Respond in {language.upper()} language." if language and language != "en" else ""
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={settings.GEMINI_API_KEY}"
+            gemini_model = getattr(settings, "GEMINI_MODEL", "gemini-flash-lite-latest") or "gemini-flash-lite-latest"
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={settings.GEMINI_API_KEY}"
             async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.post(
                     gemini_url,

@@ -17,39 +17,64 @@ import {
   Upload,
   Play,
   Square,
-  ShieldCheck
+  ShieldCheck,
+  Phone,
+  PhoneCall,
+  PhoneForwarded
 } from 'lucide-react';
-import { sendAgentMessage, uploadInvoiceFile, uploadExpenseCSV, uploadAgentFile } from '../api';
+import { sendAgentMessage, uploadInvoiceFile, uploadExpenseCSV, uploadAgentFile, callDeviceViaAgent } from '../api';
 import { formatCurrency } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 
 const STARTER_PROMPTS = [
-  "Introduce yourself",
+  "Call my phone with spending update",
+  "Generate PDF for GLA Hackathon Presentation",
+  "Generate image of a futuristic cyberpunk city",
+  "Read webpage https://www.example.com",
   "Talk about my uploaded invoices",
-  "Create PDF roadmap and give it to me",
-  "Send this to my phone",
   "How much did I spend this month?",
   "Where did most of my money go?",
-  "How much can I spend per day?",
   "Can I afford a ₹1,200 purchase?",
   "What if I reduce shopping expenses by 20%?",
   "Detect unusual expenses"
 ];
 
 export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessage }) {
+  const { user } = useAuth();
+  const activeUserName = user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : null) || 'Mohammad Kaif';
+
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       sender: 'agent',
-      text: "🎙️ **Hello! I'm ExpensePilot Voice AI**, your autonomous financial and invoice intelligence copilot. 🚀\n\nI can speak with you, audit your uploaded invoices, simulate budget scenarios, and generate an executive-ready 3-Phase Financial Roadmap PDF.\n\nClick a quick voice prompt below or tap the **Microphone** to speak naturally!",
-      voiceText: "Hello! I am ExpensePilot Voice AI, your autonomous financial copilot. Ask me to introduce myself, discuss your uploaded invoices, or create your financial roadmap PDF!",
+      text: `🎙️ **Hello ${activeUserName}! I'm ExpensePilot Voice AI**, your autonomous financial and invoice intelligence copilot. 🚀\n\nI can speak with you, audit your uploaded invoices, generate 1200x675 HD visuals, and synthesize custom Executive PDF reports on any project or budget.\n\nClick a quick voice prompt below or tap the **Microphone** to speak naturally!`,
+      voiceText: `Hello ${activeUserName}! I am ExpensePilot Voice AI, your autonomous financial copilot. Ask me to introduce myself, generate a custom PDF report, or create visual cards!`,
       suggestedActions: [
+        "Call my device",
         "Introduce yourself",
-        "Talk about my uploaded invoices",
-        "Create PDF roadmap and give it to me",
-        "Predict my monthly spending"
+        "Generate PDF for GLA Hackathon Presentation",
+        "Generate image of a red sports car",
+        "Talk about my uploaded invoices"
       ]
     }
   ]);
+
+  // Dynamically update greeting if user switches accounts
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length > 0 && prev[0].id === 'welcome') {
+        return [
+          {
+            ...prev[0],
+            text: `🎙️ **Hello ${activeUserName}! I'm ExpensePilot Voice AI**, your autonomous financial and invoice intelligence copilot. 🚀\n\nI can speak with you, audit your uploaded invoices, generate 1200x675 HD visuals, and synthesize custom Executive PDF reports on any project or budget.\n\nClick a quick voice prompt below or tap the **Microphone** to speak naturally!`,
+            voiceText: `Hello ${activeUserName}! I am ExpensePilot Voice AI, your autonomous financial copilot. Ask me to introduce myself, generate a custom PDF report, or create visual cards!`
+          },
+          ...prev.slice(1)
+        ];
+      }
+      return prev;
+    });
+  }, [activeUserName]);
   const [input, setInput] = useState('');
   const [attachedFileContext, setAttachedFileContext] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -192,7 +217,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
     setIsLoading(true);
 
     try {
-      const response = await sendAgentMessage(text.trim(), attachedFileContext);
+      const response = await sendAgentMessage(text.trim(), attachedFileContext, activeUserName, user?.id);
       const agentMsg = {
         id: (Date.now() + 1).toString(),
         sender: 'agent',
@@ -202,7 +227,9 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
         toolResult: response.tool_result,
         addedExpenses: response.structured_expenses_added,
         suggestedActions: response.suggested_actions || [],
-        pdfDownloadUrl: response.pdf_download_url
+        pdfDownloadUrl: response.pdf_download_url || response.tool_result?.pdf_url,
+        imageUrl: response.image_url || response.tool_result?.image_url,
+        callInfo: response.call_info || response.tool_result?.call_info
       };
 
       setMessages((prev) => [...prev, agentMsg]);
@@ -384,6 +411,16 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Direct Device Call Button */}
+            <button
+              onClick={() => handleSend("Call my device with a voice spending update")}
+              title="Call your paired phone / device directly with voice telemetry"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all cursor-pointer hover:scale-105"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Call Device</span>
+            </button>
+
             {/* Audio Speech Mute / Unmute Toggle */}
             <button
               onClick={() => {
@@ -492,33 +529,35 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
 
                 {/* Interactive PDF Roadmap Card */}
                 {msg.pdfDownloadUrl && (
-                  <div className="my-3.5 p-4 rounded-2xl bg-gradient-to-br from-cyan-950/40 via-blue-950/30 to-indigo-950/40 border border-cyan-400/40 shadow-[0_8px_30px_rgba(6,182,212,0.25)] backdrop-blur-xl">
-                    <div className="flex items-center justify-between pb-3 border-b border-cyan-400/20">
+                  <div className="my-3.5 p-4 rounded-2xl bg-gradient-to-br from-purple-950/40 via-violet-950/30 to-indigo-950/40 border border-purple-400/40 shadow-[0_8px_30px_rgba(168,85,247,0.25)] backdrop-blur-xl">
+                    <div className="flex items-center justify-between pb-3 border-b border-purple-400/20">
                       <div className="flex items-center gap-2.5">
-                        <div className="p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">
+                        <div className="p-2.5 rounded-xl bg-purple-500/20 border border-purple-400/40 text-purple-300">
                           <FileText className="w-5 h-5" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-white text-sm">Personalized Financial Roadmap</h4>
-                          <p className="text-[11px] text-cyan-200">PDF-1.4 Standard Report • 90-Day Wealth Plan</p>
+                          <h4 className="font-bold text-white text-sm">
+                            {msg.toolResult?.custom_title || "Executive Financial Roadmap"}
+                          </h4>
+                          <p className="text-[11px] text-purple-200">
+                            {msg.toolResult?.custom_notes || "Vector PDF-1.4 • High Resolution Print Ready"}
+                          </p>
                         </div>
                       </div>
                       <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                        Generated
+                        Ready
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 my-3 text-xs">
-                      <div className="p-2 rounded-xl bg-black/30 border border-white/5">
-                        <span className="text-[10px] text-slate-400 block">Health Score</span>
-                        <span className="font-bold text-cyan-300 text-sm">
-                          {msg.toolResult?.health_score || 85}/100
-                        </span>
+                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
+                        <span className="text-[10px] text-slate-400 block">Format</span>
+                        <span className="font-bold text-purple-300 text-xs">High-Res Vector PDF</span>
                       </div>
-                      <div className="p-2 rounded-xl bg-black/30 border border-white/5">
-                        <span className="text-[10px] text-slate-400 block">90-Day Target</span>
-                        <span className="font-bold text-emerald-400 text-sm">
-                          +₹15,000 Saved
+                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
+                        <span className="text-[10px] text-slate-400 block">Engine</span>
+                        <span className="font-bold text-emerald-400 text-xs">
+                          {msg.toolResult?.craftmypdf_status?.status === "ACTIVE_AUTHENTICATED" ? "CraftMyPDF Cloud" : "Templated.io Studio"}
                         </span>
                       </div>
                     </div>
@@ -528,11 +567,96 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
                       target="_blank"
                       rel="noopener noreferrer"
                       download="ExpensePilot_Financial_Roadmap.pdf"
-                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:scale-[1.02] transition-all"
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/30 hover:scale-[1.02] transition-all cursor-pointer"
                     >
                       <Download className="w-4 h-4" />
-                      <span>Download PDF Roadmap</span>
+                      <span>Download Executive PDF Report</span>
                     </a>
+                  </div>
+                )}
+
+                {/* Interactive Generated Visual Image Card */}
+                {msg.imageUrl && (
+                  <div className="my-3.5 p-3 rounded-2xl bg-black/40 border border-purple-500/40 shadow-xl overflow-hidden">
+                    <img 
+                      src={msg.imageUrl} 
+                      alt="Generated Financial Card" 
+                      className="w-full rounded-xl object-cover border border-white/10" 
+                    />
+                    <div className="flex items-center justify-between pt-2.5 px-1">
+                      <span className="text-[11px] text-purple-200 font-mono">
+                        {msg.toolResult?.engine || "1200x675 HD • AI Studio"} {msg.toolResult?.custom_text ? `• "${msg.toolResult.custom_text.slice(0, 30)}"` : ""}
+                      </span>
+                      <a 
+                        href={msg.imageUrl} 
+                        download={`Generated_${msg.toolResult?.custom_text ? msg.toolResult.custom_text.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20) : 'Visual'}.png`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs px-3 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-200 border border-purple-400/30 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download Image
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Interactive Direct Device Voice Call HUD Card */}
+                {msg.callInfo && (
+                  <div className="my-3.5 p-4 rounded-2xl bg-gradient-to-br from-emerald-950/60 via-slate-900/90 to-slate-950/95 border border-emerald-500/40 shadow-[0_8px_30px_rgba(16,185,129,0.25)] backdrop-blur-xl space-y-3">
+                    <div className="flex items-center justify-between pb-3 border-b border-emerald-500/20">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300">
+                          <PhoneCall className="w-5 h-5 animate-pulse" />
+                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-white text-sm flex items-center gap-2">
+                            <span>Direct Device Voice Call</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                              Active
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-slate-300">
+                            Dialing Handset: <strong className="text-emerald-300 font-mono">{msg.callInfo.phone_number}</strong>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Spoken Voice Transcript */}
+                    <div className="p-3 rounded-xl bg-black/50 border border-white/5 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Spoken Voice Transcript:
+                      </span>
+                      <p className="text-xs text-slate-200 italic leading-relaxed">
+                        "{msg.callInfo.spoken_message}"
+                      </p>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <a
+                        href={msg.callInfo.tel_url || `tel:${msg.callInfo.phone_number}`}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/30 hover:scale-[1.02] transition-all cursor-pointer"
+                      >
+                        <PhoneCall className="w-4 h-4" />
+                        <span>Answer / Dial Handset Now</span>
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => speakVoice(msg.callInfo.spoken_message)}
+                        className="flex items-center justify-center gap-1.5 py-2.5 px-3.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all cursor-pointer"
+                        title="Listen to spoken audio in browser speaker"
+                      >
+                        <Volume2 className="w-4 h-4 text-emerald-400" />
+                        <span>Play Audio</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 

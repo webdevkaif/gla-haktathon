@@ -29,11 +29,26 @@ async def main():
 
     try:
         await init_db()
+        from backend.app.database import is_fallback_mode
         db = get_database()
         
         # Ping command
         ping_res = await db.client.admin.command('ping')
-        print(f"✅ Connection Status : SUCCESS (Ping response: {ping_res})")
+        
+        if is_fallback_mode:
+            print(f"⚠️  Atlas Cloud Status : OFFLINE / PENDING IP WHITELIST")
+            print(f"✅ Local Engine Status: ACTIVE & READY (Ping: {ping_res})")
+            print(f"ℹ️  Current Machine IP : 45.127.226.145")
+            print("-" * 60)
+            print("To connect directly to MongoDB Atlas Cloud:")
+            print("1. Go to https://cloud.mongodb.com -> Network Access")
+            print("2. Click '+ ADD IP ADDRESS' and add 0.0.0.0/0 (Allow Anywhere) or 45.127.226.145/32")
+            print("=" * 60)
+            print("🚀 ExpensePilot AI is running smoothly on the Local Fast-Engine in the meantime!")
+            print("=" * 60)
+            return
+
+        print(f"✅ Atlas Cloud Status : 100% CONNECTED & LIVE (Ping: {ping_res})")
         
         # Check / list collections
         cols = await db.list_collection_names()

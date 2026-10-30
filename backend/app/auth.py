@@ -100,6 +100,17 @@ DEFAULT_DEMO_PASSWORD = "password123"
 DEFAULT_DEMO_HASH = hash_password(DEFAULT_DEMO_PASSWORD)
 
 DEMO_USERS: Dict[str, Dict[str, Any]] = {
+    "user_kaif": {
+        "id": "user_kaif",
+        "name": "Mohammad Kaif",
+        "email": "kaif@expensepilot.ai",
+        "role": "admin",
+        "grade": "L4",
+        "manager_id": None,
+        "vendor_id": None,
+        "password_hash": DEFAULT_DEMO_HASH,
+        "is_sample": True
+    },
     "emp_john": {
         "id": "emp_john",
         "name": "John Doe",
@@ -267,6 +278,44 @@ async def get_current_user(
         "vendor_id": payload.get("vendor_id"),
         "is_sample": True
     }
+
+async def get_optional_current_user(
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    db = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Extracts caller identity if valid JWT token is provided; otherwise falls back gracefully
+    to active user ('user_kaif' / Mohammad Kaif) so conversational agent interactions never block on 401.
+    """
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1].strip()
+        try:
+            payload = decode_access_token(token)
+            user_id = payload.get("sub") or payload.get("id")
+            if user_id:
+                user_doc = await db.users.find_one({"$or": [{"id": user_id}, {"email": user_id}]})
+                if user_doc:
+                    doc = dict(user_doc)
+                    if "_id" in doc:
+                        doc["_id"] = str(doc["_id"])
+                    return doc
+                if user_id in DEMO_USERS:
+                    return dict(DEMO_USERS[user_id])
+                return {
+                    "id": user_id,
+                    "name": payload.get("name", "Mohammad Kaif"),
+                    "role": payload.get("role", "admin"),
+                    "grade": payload.get("grade", "L4"),
+                    "email": payload.get("email", f"{user_id}@expensepilot.ai")
+                }
+        except Exception:
+            pass
+
+    if x_user_id and x_user_id in DEMO_USERS:
+        return dict(DEMO_USERS[x_user_id])
+
+    return dict(DEMO_USERS.get("user_kaif", DEMO_USERS["emp_john"]))
 
 def require_role(allowed_roles: List[str]):
     """FastAPI dependency factory enforcing role-based access control."""

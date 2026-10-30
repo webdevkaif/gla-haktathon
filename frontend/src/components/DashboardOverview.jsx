@@ -51,7 +51,12 @@ export default function DashboardOverview({
     async function loadAnomalies() {
       try {
         setIsAnomalyLoading(true);
-        const data = await fetchAnomalyDetections(summary?.month || '2026-10');
+        let activeUid = 'user_default';
+        try {
+          const stored = localStorage.getItem('expensepilot_active_user');
+          if (stored) activeUid = JSON.parse(stored).id || 'user_default';
+        } catch (_) {}
+        const data = await fetchAnomalyDetections(summary?.month || '2026-10', activeUid);
         if (isMounted) setAnomalyReport(data);
       } catch (err) {
         console.error('[PyOD Isolation Forest Error]', err);
@@ -183,78 +188,90 @@ export default function DashboardOverview({
           </button>
         </div>
 
-        {/* 6 Colorful Action Buttons with Micro-Animations */}
+        {/* 6 Executive Action Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
           <button
             onClick={() => onNavigateTab && onNavigateTab('enterprise')}
-            className="p-3.5 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white shadow-lg shadow-rose-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+            className="p-3.5 rounded-2xl bg-[#0e101a]/90 hover:bg-[#151829] text-left transition-all duration-200 hover:-translate-y-0.5 group border border-white/[0.08] hover:border-rose-500/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <AlertTriangle className="w-4 h-4 text-white" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-400">
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </div>
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
             </div>
-            <span className="text-xs font-extrabold block">1. Exceptions</span>
-            <span className="text-[10px] text-white/80">High-risk first</span>
+            <span className="text-xs font-bold text-white block group-hover:text-rose-300 transition-colors">1. Exceptions</span>
+            <span className="text-[10px] text-slate-400">High-risk first</span>
           </button>
 
           <button
             onClick={() => onNavigateTab && onNavigateTab('enterprise')}
-            className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+            className="p-3.5 rounded-2xl bg-[#0e101a]/90 hover:bg-[#151829] text-left transition-all duration-200 hover:-translate-y-0.5 group border border-white/[0.08] hover:border-emerald-500/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <CheckCircle2 className="w-4 h-4 text-white" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
             </div>
-            <span className="text-xs font-extrabold block">2. Approvals</span>
-            <span className="text-[10px] text-white/80">Friday disbursement</span>
+            <span className="text-xs font-bold text-white block group-hover:text-emerald-300 transition-colors">2. Approvals</span>
+            <span className="text-[10px] text-slate-400">Friday disbursement</span>
           </button>
 
           <button
             onClick={() => onNavigateTab && onNavigateTab('enterprise')}
-            className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-lg shadow-amber-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+            className="p-3.5 rounded-2xl bg-[#0e101a]/90 hover:bg-[#151829] text-left transition-all duration-200 hover:-translate-y-0.5 group border border-white/[0.08] hover:border-amber-500/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <Copy className="w-4 h-4 text-white" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                <Copy className="w-3.5 h-3.5" />
+              </div>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span>
             </div>
-            <span className="text-xs font-extrabold block">3. Duplicates</span>
-            <span className="text-[10px] text-white/80">Zero double-pay</span>
+            <span className="text-xs font-bold text-white block group-hover:text-amber-300 transition-colors">3. Duplicates</span>
+            <span className="text-[10px] text-slate-400">Zero double-pay</span>
           </button>
 
           <button
             onClick={() => onNavigateTab && onNavigateTab('enterprise')}
-            className="p-3.5 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+            className="p-3.5 rounded-2xl bg-[#0e101a]/90 hover:bg-[#151829] text-left transition-all duration-200 hover:-translate-y-0.5 group border border-white/[0.08] hover:border-purple-500/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <FileSearch className="w-4 h-4 text-white" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-400">
+                <FileSearch className="w-3.5 h-3.5" />
+              </div>
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.6)]"></span>
             </div>
-            <span className="text-xs font-extrabold block">4. Explainable</span>
-            <span className="text-[10px] text-white/80">Exact rule reasons</span>
+            <span className="text-xs font-bold text-white block group-hover:text-purple-300 transition-colors">4. Explainable</span>
+            <span className="text-[10px] text-slate-400">Exact rule reasons</span>
           </button>
 
           <button
             onClick={() => onNavigateTab && onNavigateTab('enterprise')}
-            className="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+            className="p-3.5 rounded-2xl bg-[#0e101a]/90 hover:bg-[#151829] text-left transition-all duration-200 hover:-translate-y-0.5 group border border-white/[0.08] hover:border-indigo-500/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <Lock className="w-4 h-4 text-white" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
+                <Lock className="w-3.5 h-3.5" />
+              </div>
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.6)]"></span>
             </div>
-            <span className="text-xs font-extrabold block">5. SHA-256 Audit</span>
-            <span className="text-[10px] text-white/80">Tamper-evident chain</span>
+            <span className="text-xs font-bold text-white block group-hover:text-indigo-300 transition-colors">5. SHA-256 Audit</span>
+            <span className="text-[10px] text-slate-400">Tamper-evident chain</span>
           </button>
 
           <button
             onClick={() => onNavigateTab && onNavigateTab('enterprise')}
-            className="p-3.5 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+            className="p-3.5 rounded-2xl bg-[#0e101a]/90 hover:bg-[#151829] text-left transition-all duration-200 hover:-translate-y-0.5 group border border-white/[0.08] hover:border-cyan-500/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <Sparkles className="w-4 h-4 text-white" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">
+                <Sparkles className="w-3.5 h-3.5" />
+              </div>
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></span>
             </div>
-            <span className="text-xs font-extrabold block">6. Policy Evidence</span>
-            <span className="text-[10px] text-white/80">Cited source rules</span>
+            <span className="text-xs font-bold text-white block group-hover:text-cyan-300 transition-colors">6. Policy Evidence</span>
+            <span className="text-[10px] text-slate-400">Cited source rules</span>
           </button>
         </div>
       </div>

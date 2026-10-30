@@ -9,6 +9,7 @@ from backend.app.services.anomaly import audit_and_generate_alerts
 router = APIRouter(prefix="/api/expenses", tags=["Expenses"])
 
 @router.get("", response_model=List[ExpenseOut])
+@router.get("/", response_model=List[ExpenseOut])
 async def list_expenses(
     month: Optional[str] = Query(None, description="Month in YYYY-MM format"),
     category: Optional[str] = Query(None),

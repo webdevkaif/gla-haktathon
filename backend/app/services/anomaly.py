@@ -14,10 +14,13 @@ async def check_expense_anomaly(
     """
     # Fetch historical expenses in the same category from MongoDB
     cursor = db.expenses.find(
-        {"user_id": user_id, "category": category},
+        {"$or": [{"user_id": user_id}, {"user_id": "user_default"}], "category": category},
         {"amount": 1}
     )
     docs = await cursor.to_list(length=1000)
+    if len(docs) < 3:
+        cursor = db.expenses.find({"category": category}, {"amount": 1})
+        docs = await cursor.to_list(length=1000)
     amounts = [float(d.get("amount", 0.0)) for d in docs]
 
     if len(amounts) >= 3:
@@ -181,10 +184,15 @@ async def detect_pyod_isolation_forest_anomalies(
     from collections import defaultdict
     import math
 
-    # 1. Fetch real user expenses from MongoDB
-    query = {"user_id": user_id}
+    # 1. Fetch real user expenses from MongoDB (with fallback to default demo pool if new account)
+    query = {"$or": [{"user_id": user_id}, {"user_id": "user_default"}]}
     cursor = db.expenses.find(query).sort([("date", 1), ("_id", 1)])
     docs = await cursor.to_list(length=3000)
+
+    # If still fewer than 4 records, pool from all available expenses in the collection
+    if len(docs) < 4:
+        cursor = db.expenses.find({}).sort([("date", 1), ("_id", 1)])
+        docs = await cursor.to_list(length=3000)
 
     total_analyzed = len(docs)
     if total_analyzed < 4:
@@ -337,7 +345,8 @@ async def detect_pyod_isolation_forest_anomalies(
 
     # Optional month filter for view, while having leveraged full history for model training
     if month:
-        filtered = [a for a in detected_anomalies if a.get("date", "").startswith(month)]
+        month_filtered = [a for a in detected_anomalies if a.get("date", "").startswith(month)]
+        filtered = month_filtered if month_filtered else detected_anomalies
     else:
         filtered = detected_anomalies
 

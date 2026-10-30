@@ -14,6 +14,7 @@ from backend.app.data_access import fetch_scoped_claims, get_claims_scope_query
 router = APIRouter(prefix="/api/claims", tags=["Reimbursement Claims"])
 
 @router.get("", response_model=List[ClaimOut])
+@router.get("/", response_model=List[ClaimOut])
 async def list_claims(
     status: Optional[str] = Query(None, description="Filter by status"),
     category: Optional[str] = Query(None, description="Filter by category"),

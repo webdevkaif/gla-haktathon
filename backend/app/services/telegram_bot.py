@@ -39,6 +39,29 @@ async def get_telegram_bot_info() -> Dict[str, Any]:
         "bot_url": f"https://t.me/{settings.TELEGRAM_BOT_USERNAME}"
     }
 
+async def fetch_latest_telegram_chat_id() -> Optional[Dict[str, Any]]:
+    """Fetches the latest incoming chat ID from recent Telegram updates to auto-pair devices."""
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token:
+        return None
+    try:
+        url = f"https://api.telegram.org/bot{token}/getUpdates"
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(url, params={"offset": -5})
+            if resp.status_code == 200:
+                updates = resp.json().get("result", [])
+                for up in reversed(updates):
+                    msg = up.get("message") or up.get("channel_post")
+                    if msg and "chat" in msg:
+                        return {
+                            "chat_id": str(msg["chat"]["id"]),
+                            "sender_name": msg.get("from", {}).get("first_name", "User"),
+                            "username": msg.get("from", {}).get("username")
+                        }
+    except Exception as e:
+        print(f"[Fetch Telegram Chat ID Notice]: {e}")
+    return None
+
 async def send_telegram_message(chat_id: Any, text: str, parse_mode: Optional[str] = "Markdown") -> Dict[str, Any]:
     """Sends a message to a Telegram chat or user with auto-fallback for markdown parsing errors."""
     token = settings.TELEGRAM_BOT_TOKEN

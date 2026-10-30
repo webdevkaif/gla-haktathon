@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 # ─────────────────────────────────────────────────────────────────────────────
 # User & Auth Schemas
@@ -16,8 +16,7 @@ class UserOut(BaseModel):
     vendor_id: Optional[str] = None
     is_sample: Optional[bool] = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LoginRequest(BaseModel):
     username: str = Field(..., description="Email address or user ID (e.g. 'emp_john' or 'john.doe@meridian.com')")
@@ -52,8 +51,7 @@ class PolicyOut(BaseModel):
     grade_limits: Optional[Dict[str, float]] = {}
     is_sample: Optional[bool] = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PolicyCitation(BaseModel):
     doc_name: str
@@ -100,8 +98,7 @@ class ClaimOut(BaseModel):
     created_at: Optional[datetime] = None
     is_sample: Optional[bool] = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Invoice & Purchase Order Schemas
@@ -155,8 +152,7 @@ class InvoiceOut(BaseModel):
     is_anomaly: Optional[bool] = False
     anomaly_reason: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PurchaseOrderOut(BaseModel):
     id: str
@@ -169,8 +165,7 @@ class PurchaseOrderOut(BaseModel):
     created_at: Optional[datetime] = None
     is_sample: Optional[bool] = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Approval Schemas
@@ -192,8 +187,7 @@ class ApprovalOut(BaseModel):
     # Augmented fields for UI display
     entity_summary: Optional[Dict[str, Any]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ApprovalDecideRequest(BaseModel):
     decision: str = Field(..., description="'Approved' or 'Rejected'")
@@ -230,8 +224,7 @@ class EscalationOut(BaseModel):
     resolved_at: Optional[datetime] = None
     is_sample: Optional[bool] = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class EscalationResolveRequest(BaseModel):
     resolution_note: Optional[str] = "Resolved by finance reviewer."
@@ -256,8 +249,7 @@ class AuditLogOut(BaseModel):
     hash: str
     is_sample: Optional[bool] = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AuditVerifyResponse(BaseModel):
     valid: bool
@@ -275,6 +267,7 @@ class AuditVerifyResponse(BaseModel):
 class AgentChatRequest(BaseModel):
     message: str
     user_id: Optional[str] = None
+    user_name: Optional[str] = None
     language: Optional[str] = "en"
     file_context: Optional[Dict[str, Any]] = None
 
@@ -298,6 +291,9 @@ class AgentChatResponse(BaseModel):
     escalated: bool = False
     suggested_actions: List[str] = []
     voice_text: Optional[str] = None
+    pdf_download_url: Optional[str] = None
+    image_url: Optional[str] = None
+    call_info: Optional[Dict[str, Any]] = None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dashboard Summary Schema
@@ -355,8 +351,7 @@ class ExpenseOut(ExpenseBase):
     anomaly_reason: Optional[str] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class BudgetCreate(BaseModel):
     month: str
@@ -375,8 +370,7 @@ class BudgetOut(BaseModel):
     days_left_in_month: int = 0
     daily_budget_remaining: float = 0.0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AlertOut(BaseModel):
     id: Union[int, str]
@@ -389,8 +383,7 @@ class AlertOut(BaseModel):
     is_read: bool = False
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class WhatIfRequest(BaseModel):
     category: str
@@ -424,8 +417,7 @@ class SavingGoalOut(BaseModel):
     category_suggestions: List[Dict[str, Any]] = []
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class InvoiceSummary(BaseModel):
     total_invoices: int
@@ -504,8 +496,7 @@ class ContactOut(BaseModel):
     role: str
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DispatchedMessageOut(BaseModel):
     id: str
@@ -520,5 +511,4 @@ class DispatchedMessageOut(BaseModel):
     whatsapp_url: Optional[str] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

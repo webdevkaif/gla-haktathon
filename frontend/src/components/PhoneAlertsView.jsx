@@ -33,6 +33,7 @@ import {
   dispatchPhoneRoadmap,
   sendTelegramTest,
   dispatchAnomaliesToTelegram,
+  pairTelegramDevice,
   directSendMessage,
   fetchPhoneContacts,
   addPhoneContact,
@@ -53,6 +54,8 @@ export default function PhoneAlertsView({ onToggleChat }) {
   const [twilioSid, setTwilioSid] = useState('');
   const [twilioToken, setTwilioToken] = useState('');
   const [twilioFrom, setTwilioFrom] = useState('');
+  const [telegramChatInput, setTelegramChatInput] = useState('');
+  const [isPairingTelegram, setIsPairingTelegram] = useState(false);
 
   // Tab State: 'direct' vs 'personal'
   const [activeTab, setActiveTab] = useState('direct');
@@ -93,6 +96,9 @@ export default function PhoneAlertsView({ onToggleChat }) {
           setPhoneNumber(raw);
         }
       }
+      if (setRes.telegram_chat_id) {
+        setTelegramChatInput(setRes.telegram_chat_id);
+      }
     } catch (err) {
       console.warn("Notice loading phone settings:", err);
     }
@@ -105,6 +111,23 @@ export default function PhoneAlertsView({ onToggleChat }) {
   const showFeedback = (msg, type = 'success') => {
     setActionFeedback({ msg, type });
     setTimeout(() => setActionFeedback(null), 4500);
+  };
+
+  const handlePairTelegram = async (chatId = null, autoDetect = false) => {
+    setIsPairingTelegram(true);
+    try {
+      const res = await pairTelegramDevice({ 
+        chat_id: chatId || telegramChatInput.trim() || undefined, 
+        auto_detect: autoDetect 
+      });
+      showFeedback(`✅ ${res.message || 'Device paired successfully!'}`);
+      if (res.chat_id) setTelegramChatInput(res.chat_id);
+      await loadData();
+    } catch (err) {
+      showFeedback(err.message || "Failed to pair device", "error");
+    } finally {
+      setIsPairingTelegram(false);
+    }
   };
 
   const handleSavePhone = async (e) => {
@@ -892,10 +915,67 @@ export default function PhoneAlertsView({ onToggleChat }) {
                   </span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
                   <p className="text-xs text-slate-300 leading-relaxed">
                     Pairs your mobile device with the <strong>ExpensePilot AI Telegram Bot</strong>. Once linked, the backend automatically sends <strong>real-time lock screen notifications</strong> whenever an anomaly, sudden expense spike, or budget threshold breach is detected!
                   </p>
+
+                  {/* Device Pairing Input Form */}
+                  <div className="p-4 rounded-2xl bg-slate-900/80 border border-sky-500/25 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5 text-sky-400" />
+                        Device Telegram Pairing
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Bot: <strong className="text-sky-300">@Isehsgiwjsbot</strong>
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={telegramChatInput}
+                        onChange={(e) => setTelegramChatInput(e.target.value)}
+                        placeholder="Telegram Chat ID (e.g. 585843198 or tap Quick Connect)"
+                        className="flex-1 glass-input rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => handlePairTelegram(telegramChatInput, false)}
+                        disabled={isPairingTelegram}
+                        className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs transition-all shadow-md shrink-0 cursor-pointer"
+                      >
+                        {isPairingTelegram ? 'Pairing...' : 'Pair Chat ID'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePairTelegram(null, true)}
+                        disabled={isPairingTelegram}
+                        className="px-3 py-2.5 rounded-xl glass-btn text-xs font-semibold text-sky-300 hover:text-white border border-sky-400/30 shrink-0 cursor-pointer"
+                        title="Auto-detect chat ID from recent messages sent to @Isehsgiwjsbot"
+                      >
+                        Auto-Detect
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePairTelegram('999753479', false)}
+                        disabled={isPairingTelegram}
+                        className="px-3 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold shrink-0 cursor-pointer"
+                        title="Connect simulated demo device instantly"
+                      >
+                        ⚡ Quick Connect Handset
+                      </button>
+                    </div>
+
+                    <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <span>✓ <strong>Step 1:</strong> Open Telegram & search <code className="text-sky-300 font-mono">@Isehsgiwjsbot</code></span>
+                      <span>✓ <strong>Step 2:</strong> Tap <strong>START</strong> or enter your Chat ID above</span>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                     <a
@@ -928,13 +1008,6 @@ export default function PhoneAlertsView({ onToggleChat }) {
                       <Send className="w-3.5 h-3.5 text-cyan-400" />
                       <span>Send Test Ping</span>
                     </button>
-                  </div>
-
-                  <div className="text-[11px] text-slate-400 bg-black/40 p-3 rounded-xl border border-white/5 space-y-1">
-                    <div className="font-semibold text-slate-200">How to Connect in 2 Steps:</div>
-                    <div className="text-[11px]">1. Open Telegram app on phone & search <code>@Isehsgiwjsbot</code></div>
-                    <div className="text-[11px]">2. Tap <strong>START</strong> or send your phone number (<code>{phoneNumber || '9997534798'}</code>) in chat.</div>
-                    <div className="text-[10px] text-emerald-400 font-medium">✓ Phone and project will link instantly with 0 SMS credits needed.</div>
                   </div>
                 </div>
               </div>

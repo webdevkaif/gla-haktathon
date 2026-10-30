@@ -8,6 +8,8 @@ from backend.app.services.analytics import get_monthly_summary
 
 router = APIRouter(prefix="/api/budgets", tags=["Budgets"])
 
+@router.get("", response_model=BudgetOut)
+@router.get("/", response_model=BudgetOut)
 @router.get("/current", response_model=BudgetOut)
 async def get_current_budget(
     month: Optional[str] = Query(None),

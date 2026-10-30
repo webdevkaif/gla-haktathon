@@ -12,6 +12,7 @@ from backend.app.data_access import fetch_scoped_approvals
 router = APIRouter(prefix="/api/approvals", tags=["Approvals Workflow"])
 
 @router.get("", response_model=List[ApprovalOut])
+@router.get("/", response_model=List[ApprovalOut])
 async def list_approvals(
     state: Optional[str] = Query(None, description="Filter by state: Pending, Approved, Rejected"),
     entity_type: Optional[str] = Query(None, description="Filter by entity_type: claim or invoice"),

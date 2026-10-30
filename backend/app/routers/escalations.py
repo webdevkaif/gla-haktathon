@@ -9,6 +9,7 @@ from backend.app.data_access import fetch_scoped_escalations
 router = APIRouter(prefix="/api/escalations", tags=["Escalations"])
 
 @router.get("", response_model=List[EscalationOut])
+@router.get("/", response_model=List[EscalationOut])
 async def list_escalations(
     status: Optional[str] = Query(None, description="Filter: Open or Resolved"),
     severity: Optional[str] = Query(None, description="Filter: high, medium, low"),

@@ -1,6 +1,6 @@
 const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
   ? import.meta.env.VITE_API_URL 
-  : "http://127.0.0.1:8000/api";
+  : "/api";
 
 export async function fetchMonthlySummary(month = "2026-10") {
   const res = await fetch(`${API_BASE}/analytics/monthly?month=${month}`);
@@ -134,13 +134,43 @@ export async function seedDemoData() {
 
 let cachedToken = null;
 
-export async function ensureAuthToken() {
-  if (cachedToken) return cachedToken;
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  if (stored) {
-    cachedToken = stored;
-    return stored;
+function isTokenValid(token) {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  try {
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    const payload = JSON.parse(jsonPayload);
+    if (payload.exp && (payload.exp * 1000) <= (Date.now() + 60000)) {
+      return false; // Expired or expiring within 60s
+    }
+    return true;
+  } catch (e) {
+    return false;
   }
+}
+
+export async function ensureAuthToken(forceRefresh = false) {
+  if (!forceRefresh && cachedToken && isTokenValid(cachedToken)) return cachedToken;
+  
+  if (!forceRefresh) {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (stored && isTokenValid(stored)) {
+      cachedToken = stored;
+      return stored;
+    }
+  }
+
+  // Clear expired cached token
+  cachedToken = null;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('auth_token');
+  }
+
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -163,22 +193,60 @@ export async function ensureAuthToken() {
   return null;
 }
 
-export async function sendAgentMessage(message, fileContext = null) {
+export async function sendAgentMessage(message, fileContext = null, customUserName = null, customUserId = null) {
   const token = await ensureAuthToken();
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const payload = { message };
+  let activeUserName = customUserName;
+  let activeUserId = customUserId;
+
+  if (!activeUserName) {
+    try {
+      const stored = localStorage.getItem('expensepilot_active_user') || localStorage.getItem('expensepilot_demo_session');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const u = parsed.user || parsed;
+        activeUserName = u.user_metadata?.full_name || u.name || (u.email ? u.email.split('@')[0] : null);
+        activeUserId = u.id;
+      }
+    } catch (_) {}
+  }
+
+  const payload = { 
+    message,
+    user_id: activeUserId || "user_kaif",
+    user_name: activeUserName || "Mohammad Kaif"
+  };
   if (fileContext) {
     payload.file_context = fileContext;
   }
 
-  const res = await fetch(`${API_BASE}/agent/chat`, {
+  let res = await fetch(`${API_BASE}/agent/chat`, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Agent message failed");
+
+  // Self-heal on 401 Unauthorized
+  if (res.status === 401) {
+    const freshToken = await ensureAuthToken(true);
+    if (freshToken) {
+      headers["Authorization"] = `Bearer ${freshToken}`;
+    } else {
+      delete headers["Authorization"];
+    }
+    res = await fetch(`${API_BASE}/agent/chat`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+  }
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || "Agent message failed");
+  }
   return res.json();
 }
 
@@ -194,6 +262,44 @@ export async function uploadAgentFile(formData) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to process uploaded file");
+  }
+  return res.json();
+}
+
+export async function readWebpageUrl(url) {
+  const token = await ensureAuthToken();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+  };
+
+  const res = await fetch(`${API_BASE}/agent/read-url`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to read webpage via Jina Reader");
+  }
+  return res.json();
+}
+
+export async function callDeviceViaAgent(data = {}) {
+  const token = await ensureAuthToken();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+  };
+
+  const res = await fetch(`${API_BASE}/agent/call-device`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to trigger device call");
   }
   return res.json();
 }
@@ -520,6 +626,16 @@ export async function sendTelegramTest(userId = "user_default", customText = nul
     method: "POST"
   });
   if (!res.ok) throw new Error("Failed to dispatch Telegram test message");
+  return res.json();
+}
+
+export async function pairTelegramDevice(data = {}) {
+  const res = await fetch(`${API_BASE}/notifications/telegram/pair`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to pair Telegram device");
   return res.json();
 }
 

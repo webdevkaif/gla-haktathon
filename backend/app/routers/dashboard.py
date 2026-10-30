@@ -8,6 +8,8 @@ from backend.app.models import serialize_docs
 
 router = APIRouter(prefix="/api/dashboard", tags=["Finance Dashboard"])
 
+@router.get("", response_model=FinanceDashboardOut)
+@router.get("/", response_model=FinanceDashboardOut)
 @router.get("/summary", response_model=FinanceDashboardOut)
 async def get_dashboard_summary(
     current_user = Depends(get_current_user),

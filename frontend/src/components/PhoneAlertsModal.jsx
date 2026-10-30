@@ -32,6 +32,7 @@ import {
   fetchTelegramInfo,
   sendTelegramTest,
   dispatchAnomaliesToTelegram,
+  pairTelegramDevice,
   directSendMessage,
   fetchPhoneContacts
 } from '../api';
@@ -55,6 +56,8 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
   const [directChannel, setDirectChannel] = useState('SMS');
   const [directContent, setDirectContent] = useState('');
   const [isDirectSending, setIsDirectSending] = useState(false);
+  const [telegramChatInput, setTelegramChatInput] = useState('');
+  const [isPairingTelegram, setIsPairingTelegram] = useState(false);
 
   // Load user phone settings, contacts, and message history
   const loadData = async () => {
@@ -80,6 +83,9 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
           setPhoneNumber(raw);
         }
       }
+      if (setRes.telegram_chat_id) {
+        setTelegramChatInput(setRes.telegram_chat_id);
+      }
     } catch (err) {
       console.warn("Notice loading phone settings:", err);
     }
@@ -94,6 +100,23 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
   const showFeedback = (msg, type = 'success') => {
     setActionFeedback({ msg, type });
     setTimeout(() => setActionFeedback(null), 4000);
+  };
+
+  const handlePairTelegram = async (chatId = null, autoDetect = false) => {
+    setIsPairingTelegram(true);
+    try {
+      const res = await pairTelegramDevice({ 
+        chat_id: chatId || telegramChatInput.trim() || undefined, 
+        auto_detect: autoDetect 
+      });
+      showFeedback(`✅ ${res.message || 'Device paired successfully!'}`);
+      if (res.chat_id) setTelegramChatInput(res.chat_id);
+      await loadData();
+    } catch (err) {
+      showFeedback(err.message || "Failed to pair device", "error");
+    } finally {
+      setIsPairingTelegram(false);
+    }
   };
 
   const handleSavePhone = async (e) => {
@@ -721,6 +744,36 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
                     <p className="text-[11px] text-slate-300 leading-relaxed">
                       Connect your phone to receive <strong>real-time lock screen notifications</strong> whenever an anomaly or budget breach is detected by PyOD Isolation Forest.
                     </p>
+
+                    {/* Chat ID Pairing Controls */}
+                    <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-sky-500/20 space-y-2.5">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={telegramChatInput}
+                          onChange={(e) => setTelegramChatInput(e.target.value)}
+                          placeholder="Telegram Chat ID (e.g. 585843198)"
+                          className="flex-1 glass-input rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handlePairTelegram(telegramChatInput, false)}
+                          disabled={isPairingTelegram}
+                          className="px-3 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shrink-0 cursor-pointer"
+                        >
+                          {isPairingTelegram ? 'Pairing...' : 'Pair ID'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePairTelegram('999753479', false)}
+                          disabled={isPairingTelegram}
+                          className="px-2.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[11px] shrink-0 cursor-pointer"
+                          title="Instantly pair demo handset"
+                        >
+                          ⚡ Quick Pair
+                        </button>
+                      </div>
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       <a

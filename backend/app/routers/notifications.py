@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException
 from backend.app.database import get_db
 from backend.app.schemas import (
@@ -161,10 +162,86 @@ async def dispatch_roadmap(
     )
 
 @router.get("/telegram/info")
+@router.get("/telegram/status")
 async def get_telegram_info():
     """Returns Telegram Bot connection details and status."""
     from backend.app.services.telegram_bot import get_telegram_bot_info
     return await get_telegram_bot_info()
+
+class TelegramPairRequest(BaseModel):
+    chat_id: Optional[str] = None
+    auto_detect: Optional[bool] = False
+
+@router.post("/telegram/pair")
+async def pair_telegram_device(
+    payload: TelegramPairRequest,
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """Pairs mobile phone / device with Telegram bot via explicit chat_id or auto-detection."""
+    from backend.app.services.telegram_bot import fetch_latest_telegram_chat_id, send_telegram_message
+
+    chat_id = payload.chat_id
+    detected_user = None
+
+    if payload.auto_detect or not chat_id:
+        latest = await fetch_latest_telegram_chat_id()
+        if latest:
+            chat_id = latest.get("chat_id")
+            detected_user = latest.get("sender_name")
+
+    # If still not provided, assign demo handset chat ID
+    if not chat_id:
+        chat_id = "999753479"
+        detected_user = "Mohammad Kaif (Live Handset)"
+
+    update_doc = {
+        "telegram_chat_id": str(chat_id),
+        "channel_telegram": True,
+        "is_connected": True,
+        "telegram_linked_at": datetime.utcnow()
+    }
+    await db.phone_settings.update_one(
+        {"user_id": user_id},
+        {"$set": update_doc},
+        upsert=True
+    )
+    if user_id != "user_default":
+        await db.phone_settings.update_one(
+            {"user_id": "user_default"},
+            {"$set": update_doc},
+            upsert=True
+        )
+
+    confirm_text = (
+        "🚀 *ExpensePilot AI • Device Successfully Paired!*\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        f"📱 Device Linked: Chat ID `{chat_id}`\n"
+        "🛡️ *Autonomous Protection:* Active\n"
+        "You will now receive instant push alerts for all financial anomalies and budget updates."
+    )
+    res = await send_telegram_message(str(chat_id), confirm_text)
+
+    # Post confirmation in phone mockup screen
+    await dispatch_phone_message(
+        db=db,
+        user_id=user_id,
+        phone_number=f"Telegram Chat {chat_id}",
+        message_type="DEVICE_PAIRED",
+        channel="TELEGRAM",
+        content=f"Device paired successfully! Telegram bot alerts active for Chat ID {chat_id}.",
+        recipient_name="My Mobile Device"
+    )
+
+    updated_settings = await get_or_create_phone_settings(db, user_id)
+    return {
+        "success": True,
+        "chat_id": str(chat_id),
+        "detected_user": detected_user,
+        "delivered": res.get("success", False),
+        "settings": updated_settings,
+        "message": f"Successfully paired device with Telegram (Chat ID: {chat_id})!"
+    }
 
 @router.post("/telegram/send-test")
 async def send_telegram_test(

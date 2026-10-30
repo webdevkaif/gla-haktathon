@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException, Response
 from backend.app.database import get_db
 from backend.app.models import serialize_docs, build_id_query
@@ -21,6 +22,46 @@ async def get_monthly_analytics(
     if not month:
         month = datetime.utcnow().strftime("%Y-%m")
     return await get_monthly_summary(db, user_id, month)
+
+@router.get("/category-breakdown")
+async def get_category_breakdown(
+    month: Optional[str] = Query(None),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+    summary = await get_monthly_summary(db, user_id, month)
+    return summary.get("category_spending", {})
+
+@router.get("/spending-pace")
+async def get_spending_pace(
+    month: Optional[str] = Query(None),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+    summary = await get_monthly_summary(db, user_id, month)
+    return {
+        "days_elapsed": summary.get("days_elapsed"),
+        "days_remaining": summary.get("days_remaining"),
+        "total_days": summary.get("total_days"),
+        "percentage_used": summary.get("percentage_used"),
+        "daily_budget_remaining": summary.get("daily_budget_remaining"),
+        "daily_average": summary.get("daily_average")
+    }
+
+@router.get("/cumulative-daily")
+async def get_cumulative_daily(
+    month: Optional[str] = Query(None),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+    fc = await forecast_monthly_spending(db, user_id, month)
+    return fc.get("trajectory", [])
 
 @router.get("/forecast")
 async def get_forecast(
@@ -167,6 +208,8 @@ async def get_financial_roadmap(
 @router.get("/roadmap/pdf")
 async def download_financial_roadmap_pdf(
     month: Optional[str] = Query(None),
+    title: Optional[str] = Query(None),
+    notes: Optional[str] = Query(None),
     user_id: str = "user_default",
     db = Depends(get_db)
 ):
@@ -186,7 +229,9 @@ async def download_financial_roadmap_pdf(
         month=month,
         summary=summary,
         budget=budget,
-        invoices=invoices
+        invoices=invoices,
+        custom_title=title,
+        custom_notes=notes
     )
 
     filename = f"ExpensePilot_Financial_Roadmap_{month}.pdf"
@@ -197,5 +242,76 @@ async def download_financial_roadmap_pdf(
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-cache"
         }
+    )
+
+@router.get("/chart/image")
+@router.get("/spending-card/image")
+async def download_financial_chart_image(
+    month: Optional[str] = Query(None),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """Generates and serves high-definition visual analytics chart card PNG."""
+    from backend.app.services.image_generator import generate_financial_card_image_bytes
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+
+    summary = await get_monthly_summary(db, user_id, month)
+    budget_doc = await db.budgets.find_one({"user_id": user_id, "month": month})
+    budget = budget_doc or {"total_budget": 50000.0, "month": month}
+
+    img_bytes = generate_financial_card_image_bytes(
+        user_id=user_id,
+        month=month,
+        summary=summary,
+        budget=budget
+    )
+
+    filename = f"ExpensePilot_Financial_Card_{month}.png"
+    return Response(
+        content=img_bytes,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "no-cache"
+        }
+    )
+
+class PDFGenerateRequest(BaseModel):
+    prompt: Optional[str] = "Corporate Financial Report"
+    title: Optional[str] = "ExpensePilot Executive Brief"
+
+class ImageGenerateRequest(BaseModel):
+    prompt: str
+    visual_type: Optional[str] = "card"
+
+@router.post("/pdf/generate")
+async def generate_custom_pdf(
+    payload: PDFGenerateRequest,
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    from backend.app.agent.tools import tool_generate_pdf_report
+    user_dict = {"id": user_id, "name": "Mohammad Kaif", "role": "admin"}
+    return await tool_generate_pdf_report(
+        db=db,
+        user=user_dict,
+        custom_title=payload.title,
+        custom_notes=payload.prompt
+    )
+
+@router.post("/image/generate")
+async def generate_custom_image(
+    payload: ImageGenerateRequest,
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    from backend.app.agent.tools import tool_generate_visual_card
+    user_dict = {"id": user_id, "name": "Mohammad Kaif", "role": "admin"}
+    return await tool_generate_visual_card(
+        db=db,
+        user=user_dict,
+        visual_type=payload.visual_type or "card",
+        custom_text=payload.prompt
     )
 

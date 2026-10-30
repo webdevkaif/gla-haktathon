@@ -17,6 +17,7 @@ class Settings(BaseModel):
     
     # Optional LLM API Keys
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
@@ -24,7 +25,13 @@ class Settings(BaseModel):
     
     # Mindee Invoice OCR API Key and optional V2 Model ID
     MINDEE_API_KEY: str = os.getenv("MINDEE_API_KEY", "")
-    MINDEE_MODEL_ID: str = os.getenv("MINDEE_MODEL_ID", "")
+    MINDEE_MODEL_ID: str = os.getenv("MINDEE_MODEL_ID", "93a84a34-f8e1-4d18-b7bd-e26dc184aad3")
+    IMAGE_PDF_API_KEY: str = os.getenv("IMAGE_PDF_API_KEY", "93a84a34-f8e1-4d18-b7bd-e26dc184aad3")
+    # Templated.io & CraftMyPDF Integration
+    TEMPLATED_API_KEY: str = os.getenv("TEMPLATED_API_KEY", "93a84a34-f8e1-4d18-b7bd-e26dc184aad3")
+    TEMPLATED_TEMPLATE_ID: str = os.getenv("TEMPLATED_TEMPLATE_ID", "")
+    CRAFTMYPDF_API_KEY: str = os.getenv("CRAFTMYPDF_API_KEY", "6ea4MzM5NzU6MzQyNTU6OEN0NFROYjNJbFAxSG1SaA=")
+    CRAFTMYPDF_TEMPLATE_ID: str = os.getenv("CRAFTMYPDF_TEMPLATE_ID", "")
     
     DEFAULT_CURRENCY: str = "₹"
     DEFAULT_USER_ID: str = "user_default"
@@ -40,6 +47,10 @@ class Settings(BaseModel):
     # Telegram Bot Settings
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_BOT_USERNAME: str = os.getenv("TELEGRAM_BOT_USERNAME", "Isehsgiwjsbot")
+
+    # Jina AI Reader API
+    JINA_API_KEY: str = os.getenv("JINA_API_KEY", "")
+    JINA_READER_BASE_URL: str = os.getenv("JINA_READER_BASE_URL", "https://r.jina.ai")
 
     @property
     def has_valid_mongo_credentials(self) -> bool:
