@@ -10,6 +10,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { deleteExpense, confirmUnusualExpense, uploadExpenseCSV } from '../api';
+import { sendNativeMobileNotification } from '../utils/mobileNotifications';
 import { formatCurrency, getCategoryColor } from '../utils/formatters';
 
 const CATEGORIES = [
@@ -44,6 +45,9 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
     try {
       await deleteExpense(id);
       if (onExpenseMutated) onExpenseMutated();
+      sendNativeMobileNotification("📲 ExpensePilot: Data Fetch Complete", {
+        body: `Imported ${result.imported || 0} transactions from ${file.name}.`
+      });
     } catch (err) {
       console.error(err);
     }
@@ -53,6 +57,9 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
     try {
       await confirmUnusualExpense(id);
       if (onExpenseMutated) onExpenseMutated();
+      sendNativeMobileNotification("📲 ExpensePilot: Data Fetch Complete", {
+        body: `Imported ${result.imported || 0} transactions from ${file.name}.`
+      });
     } catch (err) {
       console.error(err);
     }
@@ -74,6 +81,9 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
         imported: result.imported,
       });
       if (onExpenseMutated) onExpenseMutated();
+      sendNativeMobileNotification("📲 ExpensePilot: Data Fetch Complete", {
+        body: `Imported ${result.imported || 0} transactions from ${file.name}.`
+      });
     } catch (err) {
       setImportResult({ type: 'error', message: err.message || 'Import failed. Please check your file format.' });
     } finally {
@@ -163,11 +173,11 @@ export default function ExpenseList({ expenses, onExpenseMutated, onOpenAddModal
               ) : (
                 <FileSpreadsheet className="w-3.5 h-3.5" />
               )}
-              <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import CSV/Excel'}</span>
+              <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import Excel / CSV'}</span>
               <input
                 type="file"
                 onChange={handleImportCSV}
-                accept=".csv,.xlsx,.xls,.tsv"
+                accept=".csv,.xlsx,.xls,.xlsm,.xltx,.tsv"
                 className="hidden"
                 disabled={isImporting}
               />

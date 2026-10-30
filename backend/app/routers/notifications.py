@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException
 from backend.app.database import get_db
 from backend.app.schemas import (
+    DataFetchNotificationRequest,
     PhoneSettingsUpdate, 
     PhoneSettingsOut, 
     SendMessageRequest, 
@@ -13,6 +14,7 @@ from backend.app.schemas import (
     DispatchedMessageOut
 )
 from backend.app.services.messaging import (
+    notify_data_fetch,
     get_or_create_phone_settings, 
     update_phone_settings, 
     dispatch_phone_message, 
@@ -159,6 +161,26 @@ async def dispatch_roadmap(
         channel=channel,
         content=content,
         recipient_name="Personal Mobile"
+    )
+
+@router.post("/notify-fetch", response_model=Optional[DispatchedMessageOut])
+async def trigger_fetch_notification(
+    payload: DataFetchNotificationRequest,
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """
+    Triggers a mobile phone notification (SMS/WhatsApp) notifying the user
+    that new financial data has been fetched and loaded.
+    """
+    return await notify_data_fetch(
+        db=db,
+        user_id=user_id,
+        fetch_source=payload.fetch_source or "Financial Sync",
+        items_count=payload.items_count or 1,
+        total_amount=payload.total_amount or 0.0,
+        details=payload.details,
+        channel=payload.channel
     )
 
 @router.get("/telegram/info")

@@ -23,6 +23,7 @@ import {
   PhoneForwarded
 } from 'lucide-react';
 import { sendAgentMessage, uploadInvoiceFile, uploadExpenseCSV, uploadAgentFile, callDeviceViaAgent } from '../api';
+import { sendNativeMobileNotification } from '../utils/mobileNotifications';
 import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
 
@@ -83,6 +84,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -259,14 +261,14 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
 
   // Handle file upload (CSV, Excel, PDF, Images, or TXT) from chat
   const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
+    const file = e.target?.files?.[0] || e;
     if (!file) return;
 
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
 
-    const isSpreadsheet = /\.(csv|xlsx|xls|tsv)$/i.test(file.name);
+    const isSpreadsheet = /\.(csv|xlsx|xls|xlsm|xltx|tsv)$/i.test(file.name);
     const isInvoiceDoc = /\.(pdf|png|jpg|jpeg|webp)$/i.test(file.name);
 
     try {
@@ -368,9 +370,34 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-xl h-full glass-panel-deep border-l border-white/10 bg-[#070d1d]/90 backdrop-blur-3xl flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.85)] transition-transform"
+        className={`w-full max-w-xl h-full glass-panel-deep border-l border-white/10 bg-[#070d1d]/90 backdrop-blur-3xl flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.85)] transition-transform relative ${
+          isDragging ? 'ring-2 ring-cyan-400/80 bg-[#0a1530]/95' : ''
+        }`}
         onClick={(e) => e.stopPropagation()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setIsDragging(false);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          const droppedFile = e.dataTransfer.files?.[0];
+          if (droppedFile) processUploadedFile(droppedFile);
+        }}
       >
+        {/* Drag and Drop Active Overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 bg-cyan-950/80 backdrop-blur-md flex flex-col items-center justify-center border-2 border-dashed border-cyan-400 m-4 rounded-3xl pointer-events-none animate-fade-in">
+            <Upload className="w-12 h-12 text-cyan-300 animate-bounce mb-3" />
+            <h4 className="text-lg font-bold text-white">Drop your spreadsheet or receipt here!</h4>
+            <p className="text-xs text-cyan-200 mt-1">Supports Excel (.xlsx, .xls, .xlsm) & CSV</p>
+          </div>
+        )}
         
         {/* Voice Agent Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-white/[0.02]">
@@ -720,7 +747,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
           type="file"
           ref={fileInputRef}
           onChange={handleFileUpload}
-          accept=".csv,.xlsx,.xls,.tsv,.pdf,.png,.jpg,.jpeg,.webp,.txt,.json,.md"
+          accept=".csv,.xlsx,.xls,.xlsm,.xltx,.tsv,.pdf,.png,.jpg,.jpeg,.webp,.txt,.json,.md"
           className="hidden"
         />
 

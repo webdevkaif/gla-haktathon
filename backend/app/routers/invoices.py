@@ -229,6 +229,19 @@ async def upload_invoice(
 
     await db.invoices.insert_one(inv_dict)
 
+    # Dispatch mobile phone notification of data fetch
+    try:
+        from backend.app.services.messaging import notify_data_fetch
+        await notify_data_fetch(
+            db=db,
+            user_id=user_id,
+            fetch_source=f"Invoice Receipt ({extracted_vendor})",
+            items_count=1,
+            total_amount=round(extracted_amount, 2)
+        )
+    except Exception as e_notify:
+        print(f"[Mobile Notification Notice]: {e_notify}")
+
     await write_audit(
         db=db,
         actor_id=user_id,

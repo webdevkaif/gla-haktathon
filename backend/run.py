@@ -1,6 +1,15 @@
 import sys
 import os
+import subprocess
 from pathlib import Path
+
+# Fix Windows console UTF-8 encoding
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
+    os.environ["PYTHONIOENCODING"] = "utf-8"
 
 # Auto-switch to backend/.venv python if run with system/external python
 backend_dir = Path(__file__).resolve().parent
@@ -9,7 +18,6 @@ if venv_python.exists() and sys.executable != str(venv_python):
     try:
         import uvicorn
     except ImportError:
-        # Re-execute seamlessly inside the virtual environment
         os.execv(str(venv_python), [str(venv_python)] + sys.argv)
 
 project_root = backend_dir.parent
@@ -20,7 +28,6 @@ os.environ["PYTHONPATH"] = str(project_root) + (os.pathsep + os.environ.get("PYT
 
 if __name__ == "__main__":
     import uvicorn
-    import subprocess
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
 
@@ -29,28 +36,14 @@ if __name__ == "__main__":
         try:
             out = subprocess.check_output(["lsof", "-ti", f":{port}"], stderr=subprocess.DEVNULL).decode().strip()
             my_pid = str(os.getpid())
-            killed_any = False
             for pid in out.split():
                 if pid and pid != my_pid:
                     try:
                         os.kill(int(pid), 9)
-                        killed_any = True
-                    except Exception:
+                    except ProcessLookupError:
                         pass
-            if killed_any:
-                import time
-                time.sleep(0.4)
         except Exception:
             pass
 
-    print("\n" + "=" * 65)
-    print(f"🚀 Starting Expense Pilot Backend (Meridian DEV-C04) on http://{host}:{port} ...")
-    print(f"📚 Interactive Swagger API Docs : http://127.0.0.1:{port}/docs")
-    print("=" * 65 + "\n")
-    uvicorn.run(
-        "backend.app.main:app",
-        host=host,
-        port=port,
-        reload=True,
-        app_dir=str(project_root)
-    )
+    print(f"🚀 Starting ExpensePilot Backend on http://{host}:{port} ...")
+    uvicorn.run("backend.app.main:app", host=host, port=port, reload=True)

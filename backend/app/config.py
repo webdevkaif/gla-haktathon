@@ -15,13 +15,20 @@ class Settings(BaseModel):
     MONGODB_URL: str = os.getenv("MONGODB_URL", "")
     MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "expensepilot")
     
-    # Optional LLM API Keys
+    # AI LLM Provider Settings (Groq / Gemini / OpenAI)
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
     GROK_API_KEY: str = os.getenv("GROK_API_KEY", os.getenv("XAI_API_KEY", ""))
+    AI_RISK_API_KEY: str = os.getenv("AI_RISK_API_KEY", "")
+    AI_RISK_BASE_URL: str = os.getenv("AI_RISK_BASE_URL", "")
+    
+    # Birla AI Labs (OAB Forecasting - Yug Engine)
+    BIRLA_AI_API_KEY: str = os.getenv("BIRLA_AI_API_KEY", "")
+    BIRLA_AI_BASE_URL: str = os.getenv("BIRLA_AI_BASE_URL", "https://api.oab-forecasting.com")
+    BIRLA_AI_MODEL: str = os.getenv("BIRLA_AI_MODEL", "yug")
     
     # Mindee Invoice OCR API Key and optional V2 Model ID
     MINDEE_API_KEY: str = os.getenv("MINDEE_API_KEY", "")

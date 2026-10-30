@@ -8,12 +8,13 @@ import {
   ShieldCheck, 
   MessageSquare, 
   BellRing, 
-  RefreshCw, 
-  Clock, 
-  ArrowRight, 
-  Sliders, 
-  Check, 
+  RefreshCw,
+  Clock,
+  ArrowRight,
+  Sliders,
+  Check,
   Radio,
+  Database,
   Users,
   UserCheck,
   FileText,
@@ -29,6 +30,7 @@ import {
   sendTestPhoneMessage, 
   dispatchPhoneSummary, 
   dispatchPhoneRoadmap,
+  triggerFetchNotification,
   fetchTelegramInfo,
   sendTelegramTest,
   dispatchAnomaliesToTelegram,
@@ -36,6 +38,7 @@ import {
   directSendMessage,
   fetchPhoneContacts
 } from '../api';
+import { notifyMobileOfDataFetch } from '../utils/mobileNotifications';
 
 export default function PhoneAlertsModal({ isOpen, onClose }) {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -137,6 +140,7 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
         alert_daily_recap: settings?.alert_daily_recap ?? true,
         alert_anomaly: settings?.alert_anomaly ?? true,
         alert_budget_warning: settings?.alert_budget_warning ?? true,
+        alert_data_fetch: settings?.alert_data_fetch ?? true,
       });
       setSettings(updated);
       showFeedback(`✅ Phone paired! Confirmation message sent to ${fullNumber}`);
@@ -161,7 +165,8 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
         telegram_chat_id: newSettings.telegram_chat_id,
         alert_daily_recap: newSettings.alert_daily_recap,
         alert_anomaly: newSettings.alert_anomaly,
-        alert_budget_warning: newSettings.alert_budget_warning
+        alert_budget_warning: newSettings.alert_budget_warning,
+        alert_data_fetch: newSettings.alert_data_fetch
       });
       showFeedback("Alert preferences updated!");
     } catch (err) {
@@ -667,6 +672,93 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
                     </div>
                   </form>
 
+                  {/* WhatsApp Channel */}
+                  <div 
+                    onClick={() => handleToggleChannel('channel_whatsapp')}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">WhatsApp Business Alerts</span>
+                        <span className="text-[11px] text-slate-400">Instant PDF download links and invoices</span>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={settings?.channel_whatsapp ?? true} 
+                      readOnly 
+                      className="rounded accent-emerald-500 w-4 h-4"
+                    />
+                  </div>
+
+                  {/* Daily Evening Recap */}
+                  <div 
+                    onClick={() => handleToggleChannel('alert_daily_recap')}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">9:00 PM Daily Budget Recap</span>
+                        <span className="text-[11px] text-slate-400">Sends today's total spent & remaining daily limit</span>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={settings?.alert_daily_recap ?? true} 
+                      readOnly 
+                      className="rounded accent-purple-500 w-4 h-4"
+                    />
+                  </div>
+
+                  {/* Anomaly / Overrun Alerts */}
+                  <div 
+                    onClick={() => handleToggleChannel('alert_anomaly')}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
+                        <BellRing className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">Critical Anomaly & Over-Budget Pushes</span>
+                        <span className="text-[11px] text-slate-400">Immediate push when velocity exceeds 100% of budget</span>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={settings?.alert_anomaly ?? true} 
+                      readOnly 
+                      className="rounded accent-rose-500 w-4 h-4"
+                    />
+                  </div>
+
+                  {/* Data Fetch & Bank Sync Mobile Alerts */}
+                  <div 
+                    onClick={() => handleToggleChannel('alert_data_fetch')}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-cyan-500/20 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                        <Database className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">Data Fetch & Excel Import Mobile Alerts</span>
+                        <span className="text-[11px] text-slate-400">Immediate SMS/WhatsApp when new statements or transactions load</span>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={settings?.alert_data_fetch ?? true} 
+                      readOnly 
+                      className="rounded accent-cyan-500 w-4 h-4"
+                    />
+                  </div>
                 </div>
               )}
 
