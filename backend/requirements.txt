@@ -14,4 +14,10 @@ python-dotenv>=1.0.0
 certifi>=2024.2.2
 mongomock-motor>=0.0.36
 openpyxl>=3.1.0
+<<<<<<< HEAD
 xlrd>=2.0.1
+=======
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pypdf>=4.0.0
+>>>>>>> f635bb06627205b2375f77f7e4a39d93b824da8f

@@ -13,7 +13,7 @@ __pycache__/
 *.so
 .pytest_cache/
 
-# Databases
+# Databases 
 *.db
 *.sqlite
 *.sqlite3

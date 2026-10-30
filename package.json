@@ -4,9 +4,10 @@
   "private": true,
   "description": "ExpensePilot AI - Autonomous Expense Agent",
   "scripts": {
-    "dev": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build",
+    "start": "node start.js",
+    "dev": "node start.js",
+    "backend": "python3 run.py",
     "frontend": "npm --prefix frontend run dev",
-    "backend": "python backend/run.py"
+    "backend": "cd backend && ./.venv/bin/python run.py"
   }
 }

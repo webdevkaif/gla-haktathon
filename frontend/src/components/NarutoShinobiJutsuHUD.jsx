@@ -319,46 +319,46 @@ export default function NarutoShinobiJutsuHUD({
         </div>
 
         {/* Right Side: Ninja Jutsu Selection Hand Signs Bar */}
-        <div className="absolute right-4 sm:right-6 bottom-20 z-20 flex flex-col gap-2 pointer-events-auto">
+        <div className="absolute right-4 sm:right-6 bottom-20 z-20 flex flex-col gap-3 pointer-events-auto">
           {/* Jutsu 1: Rasengan */}
           <button
             onClick={() => {
               setActiveJutsu('RASENGAN');
               triggerRasenganSurge();
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all text-left flex items-center gap-2 backdrop-blur-xl ${
+            className={`px-4.5 py-2.5 rounded-2xl text-xs font-mono font-bold transition-all text-left flex items-center gap-3 backdrop-blur-xl ${
               activeJutsu === 'RASENGAN'
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white border border-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.6)] scale-105'
-                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10'
+                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10 hover:border-white/30'
             }`}
           >
-            <Zap className="w-3.5 h-3.5 text-cyan-300" />
+            <Zap className="w-4 h-4 text-cyan-300" />
             <span>螺旋丸 // RASENGAN SHIELD</span>
           </button>
 
           {/* Jutsu 2: Shadow Clones */}
           <button
             onClick={triggerShadowClones}
-            className={`px-3.5 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all text-left flex items-center gap-2 backdrop-blur-xl ${
+            className={`px-4.5 py-2.5 rounded-2xl text-xs font-mono font-bold transition-all text-left flex items-center gap-3 backdrop-blur-xl ${
               activeJutsu === 'CLONES'
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border border-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.6)] scale-105'
-                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10'
+                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10 hover:border-white/30'
             }`}
           >
-            <Users className="w-3.5 h-3.5 text-purple-300" />
+            <Users className="w-4 h-4 text-purple-300" />
             <span>影分身 // SHADOW CLONES</span>
           </button>
 
           {/* Jutsu 3: Kurama Chakra Mode */}
           <button
             onClick={() => setActiveJutsu('KURAMA')}
-            className={`px-3.5 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all text-left flex items-center gap-2 backdrop-blur-xl ${
+            className={`px-4.5 py-2.5 rounded-2xl text-xs font-mono font-bold transition-all text-left flex items-center gap-3 backdrop-blur-xl ${
               activeJutsu === 'KURAMA'
                 ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.6)] scale-105'
-                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10'
+                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10 hover:border-white/30'
             }`}
           >
-            <Flame className="w-3.5 h-3.5 text-amber-300" />
+            <Flame className="w-4 h-4 text-amber-300" />
             <span>九尾 // KURAMA FLAME</span>
           </button>
 
@@ -368,13 +368,13 @@ export default function NarutoShinobiJutsuHUD({
               setActiveJutsu('SAGE');
               if (onNavigateTab) onNavigateTab('invoices');
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all text-left flex items-center gap-2 backdrop-blur-xl ${
+            className={`px-4.5 py-2.5 rounded-2xl text-xs font-mono font-bold transition-all text-left flex items-center gap-3 backdrop-blur-xl ${
               activeJutsu === 'SAGE'
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white border border-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.6)] scale-105'
-                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10'
+                : 'bg-black/70 text-slate-400 hover:text-white border border-white/10 hover:border-white/30'
             }`}
           >
-            <Scroll className="w-3.5 h-3.5 text-emerald-300" />
+            <Scroll className="w-4 h-4 text-emerald-300" />
             <span>仙人 // ROADMAP SCROLL</span>
           </button>
         </div>

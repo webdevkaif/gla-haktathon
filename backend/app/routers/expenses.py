@@ -53,6 +53,8 @@ async def create_expense(
         payment_method=payload.payment_method
     )
     query = {"$and": [{"user_id": user_id}, build_id_query(res["id"])]}
+    if payload.payload_hash:
+        await db.expenses.update_one(query, {"$set": {"payload_hash": payload.payload_hash}})
     obj = await db.expenses.find_one(query)
     return serialize_doc(obj)
 
@@ -140,14 +142,21 @@ async def upload_expenses_csv(
     db = Depends(get_db)
 ):
     """
+<<<<<<< HEAD
     Bulk-import expenses from Excel (.xlsx, .xls, .xlsm) or CSV spreadsheets.
     Supports multi-sheet selection, bank statements (SBI, HDFC, ICICI, etc.),
     flexible column names, Excel serial dates, timestamps, Indian currency (₹, Rs., /-),
     and automatic column type inference.
+=======
+    Bulk-import expenses from a CSV or Excel (.xlsx / .xls) file.
+    Supports auto-encoding detection, flexible delimiter sniffing,
+    fuzzy date parsing, and fuzzy column resolution.
+>>>>>>> f635bb06627205b2375f77f7e4a39d93b824da8f
     """
     import csv
     import io
     import re
+<<<<<<< HEAD
     from datetime import datetime, date, timedelta
     from dateutil import parser as date_parser
 
@@ -155,6 +164,16 @@ async def upload_expenses_csv(
     raw_bytes = await file.read()
     if not raw_bytes:
         raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+=======
+    from datetime import datetime
+    from dateutil import parser as date_parser
+    import charset_normalizer
+
+    filename = file.filename or "expenses.csv"
+    raw_bytes = await file.read()
+    if len(raw_bytes) == 0:
+        raise HTTPException(status_code=422, detail="The uploaded file is completely empty.")
+>>>>>>> f635bb06627205b2375f77f7e4a39d93b824da8f
 
     # ── 1. Read sheet/CSV into raw 2D matrix ─────────────────────────────────
     raw_table: list[list] = []
@@ -202,6 +221,7 @@ async def upload_expenses_csv(
 
     if lower_name.endswith((".xlsx", ".xlsm", ".xltx")):
         try:
+<<<<<<< HEAD
             raw_table = parse_xlsx_bytes(raw_bytes)
         except Exception as e_xlsx:
             try:
@@ -244,6 +264,91 @@ async def upload_expenses_csv(
 
     if not raw_table:
         raise HTTPException(status_code=422, detail="File is empty or contains no readable data rows.")
+=======
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
+            ws = wb.active
+            header_cells = next(ws.iter_rows(min_row=1, max_row=1), None)
+            if header_cells:
+                headers = [str(c.value).strip().lower() if c.value is not None else f"col_{i}" for i, c in enumerate(header_cells)]
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if any(v is not None and str(v).strip() != "" for v in row):
+                        row_dict = {}
+                        for i, v in enumerate(row):
+                            h_key = headers[i] if i < len(headers) else f"col_{i}"
+                            # If v is a datetime object, format it cleanly
+                            if isinstance(v, (datetime, )):
+                                row_dict[h_key] = v.strftime("%Y-%m-%d")
+                            else:
+                                row_dict[h_key] = str(v).strip() if v is not None else ""
+                        rows.append(row_dict)
+        except Exception as e:
+            # Fallback: Many .xls files exported by systems are actually CSV, TSV or HTML tables
+            try:
+                detected = charset_normalizer.from_bytes(raw_bytes).best()
+                text = raw_bytes.decode(detected.encoding if detected else "utf-8", errors="replace")
+                sample = text[:2048]
+                delimiter = "\t" if "\t" in sample else (";" if ";" in sample else ",")
+                reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+                for r in reader:
+                    if any(v and v.strip() for v in r.values()):
+                        rows.append({(k.strip().lower() if k else f"col_{i}"): (v.strip() if v else "") for i, (k, v) in enumerate(r.items())})
+            except Exception:
+                parse_error = f"Excel parse error: {e}"
+
+    if not rows and not parse_error:
+        try:
+            # Robust text decoding
+            text = ""
+            try:
+                text = raw_bytes.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                detected = charset_normalizer.from_bytes(raw_bytes).best()
+                text = raw_bytes.decode(detected.encoding if detected else "latin-1", errors="replace")
+
+            # Sniff delimiter
+            sample = text[:2048]
+            delimiter = ","
+            try:
+                sniffed = csv.Sniffer().sniff(sample)
+                delimiter = sniffed.delimiter
+            except Exception:
+                if "\t" in sample:
+                    delimiter = "\t"
+                elif ";" in sample:
+                    delimiter = ";"
+                elif "|" in sample:
+                    delimiter = "|"
+
+            reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+            for r in reader:
+                if any(v and v.strip() for v in r.values()):
+                    rows.append({(k.strip().lower() if k else f"col_{i}"): (v.strip() if v else "") for i, (k, v) in enumerate(r.items())})
+        except Exception as e:
+            parse_error = f"CSV parse error: {e}"
+
+    if parse_error and not rows:
+        raise HTTPException(status_code=422, detail=parse_error)
+    if not rows:
+        raise HTTPException(status_code=422, detail="No readable transaction rows found in file.")
+
+    # ── Normalise column aliases ───────────────────────────────────────────
+    ALIAS = {
+        "amount": ["amount", "amt", "price", "cost", "total", "value", "debit", "spent", "dr", "outflow", "net amount", "grand total", "sum"],
+        "description": ["description", "desc", "details", "name", "title", "item", "narration", "particulars", "remarks", "merchant", "vendor", "payee", "note"],
+        "date": ["date", "txn date", "transaction date", "expense date", "bill date", "invoice date", "time", "timestamp"],
+        "category": ["category", "cat", "type", "expense type", "head", "account", "department"],
+        "payment_method": ["payment_method", "payment", "mode", "payment mode", "method", "channel"],
+    }
+
+    def resolve(row: dict, field: str) -> str:
+        for alias in ALIAS[field]:
+            for k, val in row.items():
+                if k and (alias == k or alias in k):
+                    if val and str(val).strip():
+                        return str(val).strip()
+        return ""
+>>>>>>> f635bb06627205b2375f77f7e4a39d93b824da8f
 
     # ── 2. Helper Functions for Cell Parsing ─────────────────────────────────
     def parse_cell_date(raw_val) -> Optional[str]:
@@ -427,7 +532,9 @@ async def upload_expenses_csv(
     imported: list[dict] = []
     skipped: list[dict] = []
     affected_months: set[str] = set()
+    today_str = datetime.now().strftime("%Y-%m-%d")
 
+<<<<<<< HEAD
     data_rows = raw_table[start_data_idx:]
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
 
@@ -463,6 +570,59 @@ async def upload_expenses_csv(
         desc = str(raw_desc).strip() if raw_desc is not None and str(raw_desc).strip() != "" else "Imported Expense"
         cat = str(raw_cat).strip() if raw_cat is not None and str(raw_cat).strip() != "" else auto_categorize(desc)
         pay_method = str(raw_pay).strip() if raw_pay is not None and str(raw_pay).strip() != "" else "UPI / Bank"
+=======
+    for idx, row in enumerate(rows, start=2):
+        date_raw = resolve(row, "date")
+        amount_raw = resolve(row, "amount")
+        desc = resolve(row, "description")
+        cat = resolve(row, "category")
+        payment = resolve(row, "payment_method") or "UPI"
+
+        # Fallback: if description is empty, use any available text column
+        if not desc:
+            for k, v in row.items():
+                if v and not re.match(r'^\d+(\.\d+)?$', v) and len(v) > 2:
+                    desc = v
+                    break
+        desc = desc or f"Transaction #{idx}"
+
+        # Parse date with fuzzy fallback
+        parsed_date: str = today_str
+        if date_raw:
+            try:
+                dt = date_parser.parse(date_raw, fuzzy=True, dayfirst=True)
+                parsed_date = dt.strftime("%Y-%m-%d")
+            except Exception:
+                parsed_date = today_str
+
+        # Validate amount with robust symbol stripping
+        amount = 0.0
+        if not amount_raw:
+            # Fallback: search row values for any numeric amount
+            for v in row.values():
+                cleaned = re.sub(r'[^\d.-]', '', str(v))
+                try:
+                    cand = float(cleaned)
+                    if cand > 0:
+                        amount = cand
+                        break
+                except ValueError:
+                    continue
+        else:
+            try:
+                cleaned = re.sub(r'[^\d.-]', '', str(amount_raw))
+                amount = abs(float(cleaned))
+            except (ValueError, AttributeError):
+                amount = 0.0
+
+        if amount <= 0:
+            skipped.append({"row": idx, "reason": f"No valid amount in row: '{amount_raw}'"})
+            continue
+
+        # Auto-categorise if blank
+        if not cat:
+            cat = auto_categorize(desc)
+>>>>>>> f635bb06627205b2375f77f7e4a39d93b824da8f
 
         result = await tool_add_expense(
             db=db,

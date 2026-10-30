@@ -198,7 +198,7 @@ export default function ForecastingCard({ forecast, expenses, onExpenseUpdated }
                   </span>
                   <button
                     onClick={() => handleConfirm(exp.id)}
-                    className="text-xs px-3.5 py-2 rounded-xl glass-btn-emerald text-white font-bold transition-all shadow-md"
+                    className="text-xs px-4 py-2.5 rounded-xl glass-btn-emerald text-white font-bold transition-all shadow-md hover:scale-105"
                     title="Mark as confirmed legitimate expense"
                   >
                     Confirm & Dismiss

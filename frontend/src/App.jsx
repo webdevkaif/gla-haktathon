@@ -12,6 +12,11 @@ import BudgetManager from './components/BudgetManager';
 import InvoicesRoadmapView from './components/InvoicesRoadmapView';
 import PhoneAlertsModal from './components/PhoneAlertsModal';
 import PhoneAlertsView from './components/PhoneAlertsView';
+import HackathonDifferentiatorsView from './components/HackathonDifferentiatorsView';
+import MongoConnectionModal from './components/MongoConnectionModal';
+import AuthModal from './components/AuthModal';
+import AccountLoginSection from './components/AccountLoginSection';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { 
   fetchMonthlySummary, 
   fetchCurrentBudget, 
@@ -19,11 +24,13 @@ import {
   fetchExpenses, 
   fetchAlerts, 
   fetchGoals, 
+  fetchDatabaseStatus,
   seedDemoData 
 } from './api';
 import { Bot, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export default function App() {
+function AppContent() {
+  const { user, isGuestMode, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   
   // App data state
@@ -36,13 +43,25 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals & Drawers
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInitialPrompt, setChatInitialPrompt] = useState('');
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [isMongoModalOpen, setIsMongoModalOpen] = useState(false);
+  const [dbStatus, setDbStatus] = useState(null);
   const [isSeeding, setIsSeeding] = useState(false);
   const [toast, setToast] = useState(null);
+
+  const handleOpenChatWithMessage = (msg) => {
+    setChatInitialPrompt(msg);
+    setIsChatOpen(true);
+  };
+
+  // Glassmorphism Ambient Theme: 'obsidian' | 'aurora' | 'emerald' | 'minimal'
+  const [bgTheme, setBgTheme] = useState('obsidian');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -51,13 +70,14 @@ export default function App() {
 
   const loadAllData = useCallback(async () => {
     try {
-      const [sumRes, budRes, fcRes, expRes, alRes, gRes] = await Promise.all([
+      const [sumRes, budRes, fcRes, expRes, alRes, gRes, dbRes] = await Promise.all([
         fetchMonthlySummary("2026-10"),
         fetchCurrentBudget("2026-10"),
         fetchForecast("2026-10"),
         fetchExpenses({ month: "2026-10" }),
         fetchAlerts(false),
         fetchGoals(),
+        fetchDatabaseStatus().catch(() => null),
       ]);
 
       setSummary(sumRes);
@@ -66,6 +86,7 @@ export default function App() {
       setExpenses(expRes);
       setAlerts(alRes);
       setGoals(gRes);
+      if (dbRes) setDbStatus(dbRes);
     } catch (err) {
       console.error("Error loading application data:", err);
     } finally {
@@ -95,18 +116,41 @@ export default function App() {
   return (
     <div className="relative min-h-screen bg-[#060a14] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white overflow-hidden">
       
-      {/* Ambient Frosted Glass Background Orbs (Mesh Glow) */}
+      {/* =====================================================================
+          EXECUTIVE GLASSMORPHISM AMBIENT BACKDROP
+          ===================================================================== */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Orb 1: Cyan / Sky glow top-left */}
-        <div className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full bg-gradient-to-br from-cyan-500/25 to-blue-600/15 blur-[130px] animate-float-1"></div>
-        {/* Orb 2: Violet / Fuchsia glow top-right */}
-        <div className="absolute -top-24 -right-28 w-[600px] h-[600px] rounded-full bg-gradient-to-bl from-purple-600/25 to-pink-600/15 blur-[150px] animate-float-2"></div>
-        {/* Orb 3: Indigo / Blue center bloom */}
-        <div className="absolute top-1/3 left-1/3 w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[160px] animate-float-3"></div>
-        {/* Orb 4: Emerald / Teal glow bottom-right */}
-        <div className="absolute -bottom-36 right-10 w-[550px] h-[550px] rounded-full bg-emerald-500/20 blur-[140px] animate-float-1"></div>
-        {/* Subtle glass grid texture */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
+        
+        {/* Dynamic Glassmorphism Mesh Gradients */}
+        {bgTheme === 'obsidian' && (
+          <>
+            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-cyan-500/15 via-blue-600/10 to-transparent blur-[120px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-blue-600/15 via-indigo-600/10 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-emerald-500/12 blur-[130px]" />
+          </>
+        )}
+
+        {bgTheme === 'aurora' && (
+          <>
+            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-purple-600/20 via-pink-600/10 to-transparent blur-[130px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-indigo-600/20 via-violet-600/10 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-cyan-500/15 blur-[130px]" />
+          </>
+        )}
+
+        {bgTheme === 'emerald' && (
+          <>
+            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-transparent blur-[130px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-teal-600/15 via-cyan-600/10 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-amber-500/10 blur-[130px]" />
+          </>
+        )}
+
+        {/* Ambient Dark Frosted Vignette for 100% Contrast & Crisp Readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060a14]/90 via-[#060a14]/75 to-[#060a14]/95 backdrop-blur-[1px]" />
+        
+        {/* Subtle Frosted Grid Texture */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:24px_24px] opacity-35" />
       </div>
 
       {/* Toast Notification */}
@@ -129,6 +173,9 @@ export default function App() {
         onToggleChat={() => setIsChatOpen(prev => !prev)}
         onToggleAlerts={() => setIsAlertsOpen(prev => !prev)}
         onTogglePhoneAlerts={() => setIsPhoneModalOpen(prev => !prev)}
+        onOpenMongoModal={() => setIsMongoModalOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        dbStatus={dbStatus}
         unreadAlertCount={unreadAlerts.length}
         onSeedDemo={handleSeedDemo}
         isSeeding={isSeeding}
@@ -154,6 +201,12 @@ export default function App() {
                 onOpenAddExpense={() => setIsAddExpenseOpen(true)}
                 onToggleChat={() => setIsChatOpen(true)}
                 onTogglePhoneAlerts={() => setIsPhoneModalOpen(true)}
+              />
+            )}
+
+            {activeTab === 'enterprise' && (
+              <HackathonDifferentiatorsView
+                onOpenChatWithMessage={handleOpenChatWithMessage}
               />
             )}
 
@@ -197,6 +250,12 @@ export default function App() {
                 onGoalsMutated={loadAllData}
               />
             )}
+
+            {activeTab === 'account' && (
+              <AccountLoginSection
+                onLoginSuccess={() => setActiveTab('dashboard')}
+              />
+            )}
           </>
         )}
       </main>
@@ -217,6 +276,55 @@ export default function App() {
         <span>Ask Pilot AI</span>
       </button>
 
+      {/* Glassmorphism Ambient Theme Controller */}
+      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-2 p-1.5 px-3 rounded-2xl bg-slate-900/90 border border-white/10 backdrop-blur-2xl shadow-2xl">
+        <span className="text-xs font-mono font-bold text-slate-300 px-2 flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Glass Theme:</span>
+        </span>
+        <button
+          onClick={() => setBgTheme('obsidian')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'obsidian' 
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 border border-white/20' 
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          💎 Obsidian
+        </button>
+        <button
+          onClick={() => setBgTheme('aurora')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'aurora' 
+              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-white/20' 
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          🔮 Aurora
+        </button>
+        <button
+          onClick={() => setBgTheme('emerald')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'emerald' 
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-white/20' 
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          🌲 Emerald
+        </button>
+        <button
+          onClick={() => setBgTheme('minimal')}
+          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'minimal' 
+              ? 'bg-slate-700 text-white border border-white/20' 
+              : 'text-slate-500 hover:text-white hover:bg-white/5'
+          }`}
+          title="Minimal Pure Glass"
+        >
+          🌑 Pure
+        </button>
+      </div>
+
       {/* Modals & Slide-out Drawers */}
       <AddExpenseModal
         isOpen={isAddExpenseOpen}
@@ -228,6 +336,7 @@ export default function App() {
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         onDataMutated={loadAllData}
+        initialMessage={chatInitialPrompt}
       />
 
       <AnomalyAlerts
@@ -249,11 +358,31 @@ export default function App() {
         onClose={() => setIsPhoneModalOpen(false)}
       />
 
+      <MongoConnectionModal
+        isOpen={isMongoModalOpen}
+        onClose={() => setIsMongoModalOpen(false)}
+        onDataMutated={loadAllData}
+      />
+
+      {/* Supabase Authentication & Route Protection Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen || (!authLoading && !user && !isGuestMode)}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
+
       {/* Footer */}
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
         <p>ExpensePilot AI — Autonomous Financial Management Agent • GLA Hackathon Edition</p>
       </footer>
 
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

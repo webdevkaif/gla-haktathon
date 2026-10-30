@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Sparkles, PlusCircle, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { X, Sparkles, PlusCircle, CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck } from 'lucide-react';
 import { createExpense, sendAgentMessage } from '../api';
 import { formatCurrency } from '../utils/formatters';
+import { generateExpenseIntegritySeal } from '../utils/crypto';
 
 const CATEGORIES = [
   "Food",
@@ -65,16 +66,24 @@ export default function AddExpenseModal({ isOpen, onClose, onExpenseAdded }) {
     setIsLoading(true);
     setFeedback(null);
     try {
-      const res = await createExpense({
+      // 🛡️ Web Crypto SHA-256 Non-Password Data Integrity Seal
+      const expensePayload = {
         amount: parseFloat(amount),
         category,
         description,
         date,
         payment_method: paymentMethod
+      };
+      const seal = await generateExpenseIntegritySeal(expensePayload);
+
+      const res = await createExpense({
+        ...expensePayload,
+        payload_hash: seal.payload_hash
       });
+
       setFeedback({
         type: 'success',
-        message: `Expense of ${formatCurrency(res.amount)} recorded under ${res.category}!`,
+        message: `Expense recorded under ${res.category}! Web Crypto SHA-256 seal: ${seal.payload_hash.slice(0, 10)}...`,
         items: [res]
       });
       setAmount('');
@@ -157,7 +166,7 @@ export default function AddExpenseModal({ isOpen, onClose, onExpenseAdded }) {
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {[
                 "₹350 dinner yesterday",
                 "₹250 food and ₹100 petrol",
@@ -167,7 +176,7 @@ export default function AddExpenseModal({ isOpen, onClose, onExpenseAdded }) {
                   key={i}
                   type="button"
                   onClick={() => setNaturalText(sample)}
-                  className="text-[11px] px-3 py-1.5 rounded-xl glass-btn text-slate-300 hover:text-cyan-300 transition-colors"
+                  className="text-xs px-3.5 py-2 rounded-xl glass-btn text-slate-300 hover:text-cyan-300 transition-all font-medium hover:scale-[1.02]"
                 >
                   "{sample}"
                 </button>

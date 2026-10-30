@@ -11,10 +11,14 @@ import {
   Target, 
   Bot,
   FileText,
-  Smartphone 
+  Smartphone,
+  ShieldCheck,
+  Database,
+  Lock,
+  LogOut 
 } from 'lucide-react';
 
-import GhibliButton from './GhibliButton';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ 
   activeTab, 
@@ -23,18 +27,24 @@ export default function Navbar({
   onToggleChat, 
   onToggleAlerts, 
   onTogglePhoneAlerts,
+  onOpenMongoModal,
+  onOpenAuthModal,
+  dbStatus,
   unreadAlertCount, 
   onSeedDemo, 
   isSeeding 
 }) {
+  const { user, signOut, isGuestMode } = useAuth();
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'enterprise', label: 'Enterprise HQ', icon: ShieldCheck },
     { id: 'phone', label: 'Phone Alerts', icon: Smartphone },
     { id: 'invoices', label: 'Invoices & Roadmap', icon: FileText },
     { id: 'transactions', label: 'Transactions', icon: Receipt },
     { id: 'forecast', label: 'AI Forecast & Risk', icon: TrendingUp },
     { id: 'simulator', label: 'What-If Simulator', icon: Sliders },
     { id: 'goals', label: 'Savings Goals', icon: Target },
+    { id: 'account', label: 'Login & Account', icon: Lock },
   ];
 
   return (
@@ -65,7 +75,7 @@ export default function Navbar({
           </div>
 
           {/* Desktop Frosted Glass Navigation Pill */}
-          <nav className="hidden md:flex items-center gap-1.5 bg-white/[0.04] p-1.5 rounded-2xl border border-white/[0.08] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)]">
+          <nav className="hidden md:flex items-center gap-2 bg-white/[0.04] p-2 px-3 rounded-2xl border border-white/[0.12] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -74,10 +84,10 @@ export default function Navbar({
                   key={item.id}
                   id={`nav-tab-${item.id}`}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-300 ${
                     isActive
                       ? 'bg-gradient-to-r from-cyan-500/90 to-blue-600/90 text-white shadow-[0_4px_16px_rgba(6,182,212,0.35),inset_0_1px_0_0_rgba(255,255,255,0.4)] border border-cyan-300/40'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.08]'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -87,15 +97,70 @@ export default function Navbar({
             })}
           </nav>
 
-          {/* Right Frosted Action Buttons */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Right Frosted Action Buttons - Generous Spacing */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Supabase User Auth Profile Pill / Login Button */}
+            {user && !user.is_guest ? (
+              <div 
+                onClick={() => setActiveTab('account')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-btn border border-emerald-500/35 bg-emerald-500/10 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)] cursor-pointer hover:border-emerald-400"
+                title={`Signed in as: ${user.email} (Click to view account)`}
+              >
+                <div className="flex items-center gap-1.5 text-xs font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline max-w-[100px] truncate">
+                    {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); signOut(); }}
+                  className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                id="btn-open-auth"
+                onClick={onOpenAuthModal}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-btn text-xs font-bold text-cyan-300 hover:text-white border border-cyan-500/35 hover:border-cyan-400/60 transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                title="Sign In or Register with Supabase Auth"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sign In</span>
+              </button>
+            )}
+
+            {/* MongoDB Real-Time Status Pill */}
+            <button
+              id="btn-mongo-status"
+              onClick={onOpenMongoModal}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold glass-btn border transition-all ${
+                dbStatus?.connected_to_atlas
+                  ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:border-emerald-400'
+                  : 'text-amber-300 border-amber-500/40 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:border-amber-400'
+              }`}
+              title="MongoDB Atlas Cloud Database Connection & Live Sync"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span className="flex items-center gap-1.5">
+                <span className={`inline-block w-2 h-2 rounded-full ${
+                  dbStatus?.connected_to_atlas ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                }`} />
+                <span className="hidden sm:inline">
+                  {dbStatus?.connected_to_atlas ? 'Atlas Live' : 'Connect Mongo'}
+                </span>
+              </span>
+            </button>
+
             {/* Quick Demo Seed */}
             <button
               id="btn-seed-demo"
               onClick={onSeedDemo}
               disabled={isSeeding}
               title="Reset & Load 25+ realistic demo transactions for judging"
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold glass-btn text-cyan-300 border border-cyan-500/25 hover:border-cyan-400/50"
+              className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold glass-btn text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/60 shadow-sm"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin' : ''}`} />
               <span>{isSeeding ? 'Seeding...' : 'Load Demo Data'}</span>
@@ -105,7 +170,7 @@ export default function Navbar({
             <button
               id="btn-toggle-phone"
               onClick={onTogglePhoneAlerts}
-              className="relative p-2.5 rounded-xl glass-btn text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.25)] transition-all"
+              className="relative p-3 rounded-2xl glass-btn text-cyan-300 hover:text-white border border-cyan-500/35 hover:border-cyan-400/60 shadow-[0_0_15px_rgba(6,182,212,0.25)] transition-all"
               title="Pair Phone Number & Mobile Alerts (SMS/WhatsApp)"
             >
               <Smartphone className="w-4 h-4" />
@@ -115,7 +180,7 @@ export default function Navbar({
             <button
               id="btn-toggle-alerts"
               onClick={onToggleAlerts}
-              className="relative p-2.5 rounded-xl glass-btn text-slate-300 hover:text-white border border-white/[0.1] hover:border-white/25 transition-all"
+              className="relative p-3 rounded-2xl glass-btn text-slate-300 hover:text-white border border-white/[0.12] hover:border-white/30 transition-all"
               title="Active Spending Alerts"
             >
               <Bell className="w-4 h-4" />
@@ -126,31 +191,25 @@ export default function Navbar({
               )}
             </button>
 
-            {/* Add Expense Button (Studio Ghibli Animated Button) */}
-            <GhibliButton
+            {/* Add Expense Button - Glassmorphism */}
+            <button
               onClick={onOpenAddExpense}
-              variant="forest"
-              icon={PlusCircle}
-              showSprite={true}
-              spritePosition="right"
-              className="py-1.5 px-3 text-xs"
-              title="Add New Expense (Studio Ghibli Animated)"
+              className="py-2 px-3.5 text-xs font-bold rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/25 border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Add New Expense"
             >
+              <PlusCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Add Expense</span>
-            </GhibliButton>
+            </button>
 
-            {/* AI Agent Chat Toggle (Studio Ghibli Animated Button) */}
-            <GhibliButton
+            {/* AI Agent Chat Toggle - Glassmorphism */}
+            <button
               onClick={onToggleChat}
-              variant="sky"
-              icon={Bot}
-              showSprite={true}
-              spritePosition="right"
-              className="py-1.5 px-3 text-xs"
+              className="py-2 px-3.5 text-xs font-bold rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/25 border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
               title="Chat with Pilot AI Agent"
             >
+              <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">Ask Agent</span>
-            </GhibliButton>
+            </button>
           </div>
         </div>
 

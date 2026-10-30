@@ -260,7 +260,7 @@ export default function InvoicesRoadmapView({ onToggleChat }) {
           </div>
 
           {/* Upload Button */}
-          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass-btn-primary text-white font-bold text-xs cursor-pointer shadow-lg shadow-cyan-500/25 hover:scale-105 transition-all self-start sm:self-auto">
+          <label className="flex items-center gap-2.5 px-5 py-3 rounded-2xl glass-btn-primary text-white font-bold text-xs cursor-pointer shadow-lg shadow-cyan-500/25 hover:scale-105 transition-all self-start sm:self-auto">
             {isUploading ? (
               <Upload className="w-4 h-4 animate-spin" />
             ) : (
@@ -284,16 +284,16 @@ export default function InvoicesRoadmapView({ onToggleChat }) {
           </div>
         )}
 
-        {/* Category Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {/* Category Filters - Generous Spacing */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setFilterCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all ${
+              className={`px-4.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all ${
                 filterCategory === cat
                   ? 'bg-gradient-to-r from-cyan-500/90 to-blue-600/90 text-white shadow-md border border-cyan-400/40'
-                  : 'glass-btn text-slate-400 hover:text-white'
+                  : 'glass-btn text-slate-400 hover:text-white hover:bg-white/10'
               }`}
             >
               {cat}

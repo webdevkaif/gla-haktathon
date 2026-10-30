@@ -1,165 +1,81 @@
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import re
+import asyncio
+import httpx
 from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, Form
 from backend.app.database import get_db
+from backend.app.auth import get_current_user
 from backend.app.config import settings
-from backend.app.models import serialize_docs, serialize_doc, build_id_query
-from backend.app.schemas import InvoiceCreate, InvoiceOut, InvoiceSummary, InvoiceItem
+from backend.app.models import Invoice, Approval, serialize_docs, serialize_doc, build_id_query
+from backend.app.schemas import InvoiceCreate, InvoiceOut
+from backend.app.services.rules import audit_and_flag_invoice
+from backend.app.services.audit import write_audit
+from backend.app.services.ocr import check_mindee_status, parse_invoice_document
+from backend.app.data_access import fetch_scoped_invoices
 
-router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
+router = APIRouter(prefix="/api/invoices", tags=["Vendor Invoices"])
 
-DEMO_INVOICES = [
-    {
-        "vendor": "Apple Store India",
-        "invoice_number": "INV-2026-APL-8821",
-        "date": "2026-10-24",
-        "amount": 2499.0,
-        "category": "Shopping",
-        "tax": 449.82,
-        "status": "Audited",
-        "file_name": "apple_store_receipt.pdf",
-        "is_anomaly": False,
-        "anomaly_reason": None,
-        "items": [
-            {"name": "USB-C Fast Charging Adapter 30W", "quantity": 1, "unit_price": 2049.18, "total": 2049.18},
-            {"name": "GST 18%", "quantity": 1, "unit_price": 449.82, "total": 449.82}
-        ],
-        "notes": "Verified hardware accessory purchase."
-    },
-    {
-        "vendor": "Starbucks Reserve Cafe",
-        "invoice_number": "INV-2026-SBX-1092",
-        "date": "2026-10-22",
-        "amount": 650.0,
-        "category": "Food",
-        "tax": 32.5,
-        "status": "Audited",
-        "file_name": "starbucks_oct22.png",
-        "is_anomaly": True,
-        "anomaly_reason": "Price is 45% higher than your average breakfast coffee run.",
-        "items": [
-            {"name": "Caramel Macchiato Grande", "quantity": 1, "unit_price": 380.0, "total": 380.0},
-            {"name": "Artisanal Croissant", "quantity": 1, "unit_price": 237.5, "total": 237.5},
-            {"name": "GST 5%", "quantity": 1, "unit_price": 32.5, "total": 32.5}
-        ],
-        "notes": "Client meeting breakfast."
-    },
-    {
-        "vendor": "Amazon Web Services (AWS)",
-        "invoice_number": "INV-2026-AWS-90412",
-        "date": "2026-10-18",
-        "amount": 4200.0,
-        "category": "Utilities",
-        "tax": 756.0,
-        "status": "Audited",
-        "file_name": "aws_october_tax_invoice.pdf",
-        "is_anomaly": False,
-        "anomaly_reason": None,
-        "items": [
-            {"name": "Amazon EC2 Compute Cloud", "quantity": 1, "unit_price": 2400.0, "total": 2400.0},
-            {"name": "Amazon RDS PostgreSQL Storage", "quantity": 1, "unit_price": 1044.0, "total": 1044.0},
-            {"name": "Integrated IGST 18%", "quantity": 1, "unit_price": 756.0, "total": 756.0}
-        ],
-        "notes": "Monthly cloud infrastructure hosting."
-    },
-    {
-        "vendor": "Reliance Fresh Supermarket",
-        "invoice_number": "INV-2026-RF-3310",
-        "date": "2026-10-15",
-        "amount": 1840.0,
-        "category": "Groceries",
-        "tax": 88.0,
-        "status": "Audited",
-        "file_name": "reliance_groceries.jpg",
-        "is_anomaly": False,
-        "anomaly_reason": None,
-        "items": [
-            {"name": "Organic Olive Oil 1L", "quantity": 1, "unit_price": 850.0, "total": 850.0},
-            {"name": "Almonds & Dry Fruits", "quantity": 1, "unit_price": 540.0, "total": 540.0},
-            {"name": "Fresh Organic Produce & Dairy", "quantity": 1, "unit_price": 362.0, "total": 362.0},
-            {"name": "CGST + SGST", "quantity": 1, "unit_price": 88.0, "total": 88.0}
-        ],
-        "notes": "Household groceries replenishment."
-    }
-]
+@router.get("/mindee/status")
+async def get_mindee_status():
+    """
+    Returns live health check and diagnostic status of the Mindee OCR integration.
+    """
+    return await check_mindee_status()
 
-async def ensure_demo_invoices(db: Any, user_id: str):
-    """Seed sample invoices if user currently has none."""
-    count = await db.invoices.count_documents({"user_id": user_id})
-    if count == 0:
-        for inv in DEMO_INVOICES:
-            record = dict(inv)
-            record["user_id"] = user_id
-            record["created_at"] = datetime.utcnow()
-            await db.invoices.insert_one(record)
+async def extract_mindee_ocr(file_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
+    return await parse_invoice_document(file_bytes, filename)
+
 
 @router.get("", response_model=List[InvoiceOut])
 async def list_invoices(
-    user_id: str = "user_default",
-    category: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    vendor_id: Optional[str] = Query(None, description="Filter by vendor"),
+    po_no: Optional[str] = Query(None, description="Filter by PO"),
+    current_user = Depends(get_current_user),
     db = Depends(get_db)
 ):
-    await ensure_demo_invoices(db, user_id)
-    query: dict = {"user_id": user_id}
-    if category and category != "All":
-        query["category"] = category
+    """
+    Returns role-filtered vendor invoices via centralized Data Access Layer:
+    - Vendor: only invoices issued by this vendor
+    - Finance / Admin: all corporate invoices
+    - Manager: department procurement invoices
+    - Employee: access denied (HTTP 403)
+    """
+    role = (current_user.get("role") or "employee").lower()
+    if role == "employee":
+        raise HTTPException(status_code=403, detail="Forbidden: Internal employees cannot view vendor invoices.")
+
+    filter_dict: Dict[str, Any] = {}
     if status:
-        query["status"] = status
+        filter_dict["status"] = status
+    if po_no:
+        filter_dict["po_no"] = po_no
+    if vendor_id and role in ["finance", "admin"]:
+        filter_dict["vendor_id"] = vendor_id
 
-    cursor = db.invoices.find(query).sort("date", -1)
-    records = await cursor.to_list(length=100)
-    return serialize_docs(records)
+    return await fetch_scoped_invoices(db=db, user=current_user, additional_filter=filter_dict, limit=300)
 
-@router.get("/summary", response_model=InvoiceSummary)
-async def get_invoice_summary(
-    user_id: str = "user_default",
-    db = Depends(get_db)
-):
-    await ensure_demo_invoices(db, user_id)
-    cursor = db.invoices.find({"user_id": user_id}).sort("date", -1)
-    invoices = await cursor.to_list(length=200)
-
-    total_amount = sum(float(inv.get("amount", 0.0)) for inv in invoices)
-    cat_totals: Dict[str, float] = {}
-    pending_audit = 0
-
-    for inv in invoices:
-        cat = inv.get("category", "Uncategorized")
-        cat_totals[cat] = cat_totals.get(cat, 0.0) + float(inv.get("amount", 0.0))
-        if inv.get("status") == "Pending Audit":
-            pending_audit += 1
-
-    latest_inv = serialize_doc(invoices[0]) if invoices else None
-
-    return InvoiceSummary(
-        total_invoices=len(invoices),
-        total_invoiced_amount=round(total_amount, 2),
-        category_totals={k: round(v, 2) for k, v in cat_totals.items()},
-        latest_invoice=latest_inv,
-        pending_audit_count=pending_audit
-    )
 
 @router.post("", response_model=InvoiceOut)
-async def create_invoice(
+async def submit_invoice(
     payload: InvoiceCreate,
-    user_id: str = "user_default",
+    current_user = Depends(get_current_user),
     db = Depends(get_db)
 ):
-    doc = payload.dict()
-    doc["user_id"] = user_id
-    doc["created_at"] = datetime.utcnow()
-    
-    # Run anomaly check on newly created invoice
-    if doc.get("amount", 0) > 10000:
-        doc["is_anomaly"] = True
-        doc["anomaly_reason"] = f"High value invoice (₹{doc['amount']:,.0f}) exceeds single-transaction threshold."
-    else:
-        doc["is_anomaly"] = False
-        doc["anomaly_reason"] = None
+    """
+    Submits a new vendor invoice:
+    1. Checks role permission (vendor or finance).
+    2. Runs rule engine (Duplicate Detection, PO Matching tolerance, Overdue check).
+    3. Auto-triggers High-Severity escalation if duplicate or major PO mismatch found.
+    4. Routes to Finance for approval if clean.
+    5. Appends immutable audit log.
+    """
+    role = current_user.get("role", "employee")
+    user_id = current_user.get("id", "")
 
+<<<<<<< HEAD
     res = await db.invoices.insert_one(doc)
     created = await db.invoices.find_one({"_id": res.inserted_id})
 
@@ -177,237 +93,124 @@ async def create_invoice(
         print(f"[Mobile Notification Notice]: {e_notify}")
 
     return serialize_doc(created)
+=======
+    if role not in ["vendor", "finance"]:
+        raise HTTPException(status_code=403, detail="Only vendors or finance staff can submit invoices.")
+>>>>>>> f635bb06627205b2375f77f7e4a39d93b824da8f
 
-async def extract_mindee_ocr(file_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
-    """Calls Mindee Document OCR API with support for both V2 (md_...) and legacy V1 keys."""
-    if not settings.MINDEE_API_KEY:
-        return None
-    try:
-        import httpx
-        import asyncio
+    inv_vendor_id = payload.vendor_id or user_id
+    if role == "vendor" and inv_vendor_id != user_id:
+        raise HTTPException(status_code=403, detail=f"Cannot submit invoice for another vendor '{inv_vendor_id}'.")
 
-        api_key = settings.MINDEE_API_KEY.strip()
-        is_v2 = api_key.startswith("md_")
+    # Build invoice dict
+    inv_dict = Invoice.create(
+        invoice_no=payload.invoice_no,
+        vendor_id=inv_vendor_id,
+        amount=payload.amount,
+        currency=payload.currency or "INR",
+        invoice_date=payload.invoice_date,
+        due_date=payload.due_date,
+        po_no=payload.po_no,
+        vendor_name=payload.vendor_name or "Vendor Partner",
+        status=payload.status or "Received",
+        tax=payload.tax or 0.0,
+        duplicate_of=payload.duplicate_of,
+        flags=payload.flags or [],
+        file_name=payload.file_name,
+        is_sample=True
+    )
 
-        if is_v2:
-            # Mindee API V2 implementation
-            headers = {"Authorization": api_key}
-            model_id = settings.MINDEE_MODEL_ID.strip()
+    # Run rule engine
+    flags, duplicate_of, escalation = await audit_and_flag_invoice(db=db, invoice=inv_dict)
+    inv_dict["flags"] = flags
+    if duplicate_of:
+        inv_dict["duplicate_of"] = duplicate_of
 
-            async with httpx.AsyncClient(timeout=25.0) as client:
-                # If model_id not configured in .env, attempt to discover from user's account
-                if not model_id:
-                    try:
-                        r_models = await client.get("https://api-v2.mindee.net/v2/search/models", headers=headers)
-                        if r_models.status_code == 200:
-                            models_list = r_models.json().get("models", [])
-                            if models_list:
-                                model_id = models_list[0].get("id") or models_list[0].get("model_id")
-                    except Exception as err:
-                        print(f"Mindee V2 model search info: {err}")
+    await db.invoices.insert_one(inv_dict)
 
-                if not model_id:
-                    print("Mindee V2 info: No model_id configured or found. Add an Invoice model at https://app.mindee.com and set MINDEE_MODEL_ID in .env.")
-                    return None
+    # Create Approval Request for Finance (fin_alex) if not flagged as duplicate
+    if not duplicate_of:
+        app_doc = Approval.create(
+            entity_type="invoice",
+            entity_id=payload.invoice_no,
+            approver_id="fin_alex",
+            state="Pending",
+            due_at=datetime.utcnow() + timedelta(days=2)
+        )
+        await db.approvals.insert_one(app_doc)
 
-                # Enqueue document for extraction
-                files = {"file": (filename, file_bytes)}
-                data = {"model_id": model_id}
-                enqueue_resp = await client.post(
-                    "https://api-v2.mindee.net/v2/products/extraction/enqueue",
-                    headers=headers,
-                    files=files,
-                    data=data
-                )
-                if enqueue_resp.status_code not in (200, 201, 202):
-                    print(f"Mindee V2 enqueue failed ({enqueue_resp.status_code}): {enqueue_resp.text}")
-                    return None
+    # Immutable audit trail
+    await write_audit(
+        db=db,
+        actor_id=user_id,
+        actor_role=role,
+        action="INVOICE_SUBMIT",
+        entity_type="invoice",
+        entity_id=payload.invoice_no,
+        input_data={"amount": payload.amount, "po_no": payload.po_no, "vendor_id": inv_vendor_id},
+        result={
+            "status": inv_dict["status"],
+            "duplicate_of": duplicate_of,
+            "flags_count": len(flags),
+            "escalated": escalation is not None
+        },
+        status="SUCCESS"
+    )
 
-                enqueue_data = enqueue_resp.json()
-                job_info = enqueue_data.get("job", {})
-                polling_url = job_info.get("polling_url") or enqueue_data.get("polling_url")
-                if not polling_url and "id" in job_info:
-                    polling_url = f"https://api-v2.mindee.net/v2/jobs/{job_info['id']}"
+    return serialize_doc(inv_dict)
 
-                if not polling_url:
-                    return None
-
-                # Poll for completion (up to ~15-20 seconds)
-                for _ in range(8):
-                    await asyncio.sleep(2)
-                    poll_resp = await client.get(polling_url, headers=headers)
-                    if poll_resp.status_code == 200:
-                        poll_data = poll_resp.json()
-                        status = poll_data.get("job", {}).get("status") or poll_data.get("status")
-                        if status in ("Processed", "completed"):
-                            # Extraction complete, extract fields
-                            inference = poll_data.get("inference", {}) or poll_data.get("job", {}).get("inference", {})
-                            fields = inference.get("result", {}).get("fields", {}) or inference.get("prediction", {})
-                            
-                            vendor_val = fields.get("supplier_name", {}).get("value") if isinstance(fields.get("supplier_name"), dict) else fields.get("supplier_name")
-                            total_raw = fields.get("total_amount", {}).get("value") if isinstance(fields.get("total_amount"), dict) else fields.get("total_amount")
-                            date_val = fields.get("date", {}).get("value") if isinstance(fields.get("date"), dict) else fields.get("date")
-                            tax_raw = fields.get("total_tax", {}).get("value") if isinstance(fields.get("total_tax"), dict) else fields.get("total_tax")
-                            
-                            total_val = None
-                            if total_raw is not None:
-                                try:
-                                    total_val = float(total_raw)
-                                except (ValueError, TypeError):
-                                    pass
-
-                            tax_val = None
-                            if tax_raw is not None:
-                                try:
-                                    tax_val = float(tax_raw)
-                                except (ValueError, TypeError):
-                                    pass
-
-                            # Parse line items if available
-                            line_items = []
-                            raw_items = fields.get("line_items", [])
-                            if isinstance(raw_items, dict):
-                                raw_items = raw_items.get("value", [])
-                            if isinstance(raw_items, list):
-                                for li in raw_items:
-                                    if isinstance(li, dict):
-                                        desc = li.get("description", {}).get("value") if isinstance(li.get("description"), dict) else li.get("description") or "Item"
-                                        qty = li.get("quantity", {}).get("value") if isinstance(li.get("quantity"), dict) else li.get("quantity") or 1
-                                        tot = li.get("total_amount", {}).get("value") if isinstance(li.get("total_amount"), dict) else li.get("total_amount") or 0.0
-                                        line_items.append({
-                                            "name": str(desc),
-                                            "quantity": int(qty or 1),
-                                            "unit_price": round(float(tot or 0.0), 2),
-                                            "total": round(float(tot or 0.0), 2)
-                                        })
-
-                            return {
-                                "vendor": vendor_val,
-                                "amount": total_val,
-                                "date": date_val,
-                                "tax": tax_val,
-                                "items": line_items if line_items else None,
-                                "engine": "Mindee AI OCR (v2)"
-                            }
-                        elif status in ("Failed", "failed"):
-                            print(f"Mindee V2 job failed: {poll_data}")
-                            break
-
-        else:
-            # Mindee API V1 (legacy) implementation
-            headers = {"Authorization": f"Token {api_key}"}
-            files = {"document": (filename, file_bytes)}
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    "https://api.mindee.net/v1/products/mindee/invoices/v4/predict",
-                    headers=headers,
-                    files=files
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    pred = data.get("document", {}).get("inference", {}).get("prediction", {})
-                    vendor_val = pred.get("supplier_name", {}).get("value")
-                    total_val = pred.get("total_amount", {}).get("value")
-                    date_val = pred.get("date", {}).get("value")
-                    taxes = pred.get("taxes", [])
-                    tax_val = sum(t.get("value", 0) for t in taxes) if taxes else None
-                    line_items = []
-                    for li in pred.get("line_items", []):
-                        line_items.append({
-                            "name": li.get("description") or "Item",
-                            "quantity": int(li.get("quantity") or 1),
-                            "unit_price": round(float(li.get("unit_price") or li.get("total_amount") or 0.0), 2),
-                            "total": round(float(li.get("total_amount") or 0.0), 2)
-                        })
-                    return {
-                        "vendor": vendor_val,
-                        "amount": float(total_val) if total_val else None,
-                        "date": date_val,
-                        "tax": float(tax_val) if tax_val else None,
-                        "items": line_items if line_items else None,
-                        "engine": "Mindee AI OCR (v1)"
-                    }
-    except Exception as e:
-        print(f"Mindee OCR background call info: {e}")
-    return None
 
 @router.post("/upload", response_model=InvoiceOut)
 async def upload_invoice(
     file: UploadFile = File(...),
-    user_id: str = "user_default",
-    vendor: Optional[str] = Form(None),
-    amount: Optional[float] = Form(None),
-    category: Optional[str] = Form(None),
-    date_str: Optional[str] = Form(None),
+    po_no: Optional[str] = Form(None),
+    due_days: int = Form(30),
+    current_user = Depends(get_current_user),
     db = Depends(get_db)
 ):
     """
-    Intelligent OCR document extraction from uploaded image/PDF receipt.
-    Powered by Mindee AI OCR API with autonomous fallback parser.
+    Intelligent OCR document extraction from uploaded image/PDF invoice.
+    Powered by Mindee AI OCR API with automatic rule evaluation and escalation.
     """
+    role = current_user.get("role", "vendor")
+    user_id = current_user.get("id", "ven_acme")
+
     filename = file.filename or "uploaded_invoice.pdf"
     file_bytes = await file.read()
-    
-    # Attempt real-time Mindee OCR extraction
+
     mindee_result = await extract_mindee_ocr(file_bytes, filename)
-    
-    # Infer vendor name from Mindee OCR, form input, or filename
-    extracted_vendor = vendor or (mindee_result.get("vendor") if mindee_result else None)
-    if not extracted_vendor:
-        clean_name = re.sub(r'[\-_.]', ' ', filename).replace("pdf", "").replace("png", "").replace("jpg", "").strip()
-        extracted_vendor = clean_name.title() if clean_name else "Merchant Store"
 
-    # Infer or assign amount
-    if amount and amount > 0:
-        extracted_amount = float(amount)
-    elif mindee_result and mindee_result.get("amount"):
-        extracted_amount = float(mindee_result["amount"])
-    else:
-        extracted_amount = 1250.0
+    now = datetime.utcnow()
+    extracted_vendor = (mindee_result.get("vendor") if mindee_result else None) or (current_user.get("name") if role == "vendor" else "Acme Supplies Ltd")
+    extracted_amount = float(mindee_result.get("amount") or 15000.0) if mindee_result else 15000.0
+    extracted_date = (mindee_result.get("date") if mindee_result else None) or now.strftime("%Y-%m-%d")
+    extracted_tax = float(mindee_result.get("tax") or (extracted_amount * 0.18)) if mindee_result else 2700.0
+    due_date = (now + timedelta(days=due_days)).strftime("%Y-%m-%d")
 
-    extracted_category = category or "Shopping"
-    extracted_date = date_str or (mindee_result.get("date") if mindee_result else None) or datetime.utcnow().strftime("%Y-%m-%d")
-    extracted_tax = (mindee_result.get("tax") if mindee_result else None) or round(extracted_amount * 0.05, 2)
+    inv_no = (mindee_result.get("invoice_no") if mindee_result else None) or f"INV-OCR-{int(now.timestamp()) % 90000 + 10000}"
 
-    # Line items
-    if mindee_result and mindee_result.get("items"):
-        items = mindee_result["items"]
-    else:
-        items = [
-            {"name": f"{extracted_vendor} Item Purchase", "quantity": 1, "unit_price": round(extracted_amount * 0.95, 2), "total": round(extracted_amount * 0.95, 2)},
-            {"name": "Standard GST", "quantity": 1, "unit_price": round(extracted_tax, 2), "total": round(extracted_tax, 2)}
-        ]
-
-    # Smart anomaly check
-    is_anomaly = False
-    anomaly_reason = None
-    if extracted_amount > 5000:
-        is_anomaly = True
-        anomaly_reason = f"Unusually large receipt value (₹{extracted_amount:,.0f}). Requires managerial review."
-
-    notes = (
-        f"Verified via Mindee Intelligent AI OCR from file: {filename}"
-        if mindee_result
-        else f"Extracted via ExpensePilot Autonomous OCR from file: {filename}"
+    inv_dict = Invoice.create(
+        invoice_no=inv_no,
+        vendor_id=user_id if role == "vendor" else "ven_acme",
+        amount=extracted_amount,
+        currency="INR",
+        invoice_date=extracted_date,
+        due_date=due_date,
+        po_no=po_no or "PO-9001",
+        vendor_name=extracted_vendor,
+        status="Received",
+        tax=extracted_tax,
+        file_name=filename,
+        is_sample=True
     )
 
-    doc = {
-        "user_id": user_id,
-        "vendor": extracted_vendor,
-        "invoice_number": f"INV-{datetime.utcnow().strftime('%Y%m')}-{uuid.uuid4().hex[:6].upper()}",
-        "date": extracted_date,
-        "amount": round(extracted_amount, 2),
-        "category": extracted_category,
-        "tax": round(extracted_tax, 2),
-        "status": "Audited",
-        "file_name": filename,
-        "is_anomaly": is_anomaly,
-        "anomaly_reason": anomaly_reason,
-        "items": items,
-        "notes": notes,
-        "created_at": datetime.utcnow()
-    }
+    # Run rule engine & duplicate matching
+    flags, duplicate_of, escalation = await audit_and_flag_invoice(db=db, invoice=inv_dict)
+    inv_dict["flags"] = flags
+    if duplicate_of:
+        inv_dict["duplicate_of"] = duplicate_of
 
+<<<<<<< HEAD
     res = await db.invoices.insert_one(doc)
     created = await db.invoices.find_one({"_id": res.inserted_id})
 
@@ -425,15 +228,66 @@ async def upload_invoice(
         print(f"[Mobile Notification Notice]: {e_notify}")
 
     return serialize_doc(created)
+=======
+    await db.invoices.insert_one(inv_dict)
+>>>>>>> f635bb06627205b2375f77f7e4a39d93b824da8f
 
-@router.delete("/{invoice_id}")
-async def delete_invoice(
-    invoice_id: str,
-    user_id: str = "user_default",
+    await write_audit(
+        db=db,
+        actor_id=user_id,
+        actor_role=role,
+        action="INVOICE_UPLOAD_OCR",
+        entity_type="invoice",
+        entity_id=inv_no,
+        input_data={"filename": filename, "amount": extracted_amount, "po_no": po_no},
+        result={"duplicate_of": duplicate_of, "flags_count": len(flags)},
+        status="SUCCESS"
+    )
+
+    return serialize_doc(inv_dict)
+
+
+@router.get("/summary")
+async def get_invoice_summary(
+    current_user = Depends(get_current_user),
     db = Depends(get_db)
 ):
-    query = {"$and": [{"user_id": user_id}, build_id_query(invoice_id)]}
-    result = await db.invoices.delete_one(query)
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    return {"status": "success", "message": "Invoice deleted"}
+    """Returns invoice summary metrics: total_invoices, total_amount, flagged_count, pending_amount."""
+    invoices = await db.invoices.find({}).to_list(length=500)
+    total_count = len(invoices)
+    total_amount = sum(float(i.get("amount", 0.0)) for i in invoices)
+    flagged_count = sum(1 for i in invoices if i.get("status") in ["FLAGGED", "duplicate", "flagged"])
+    paid_count = sum(1 for i in invoices if i.get("status") in ["PAID", "paid"])
+    pending_amount = sum(float(i.get("amount", 0.0)) for i in invoices if i.get("status") in ["RECEIVED", "pending", "VERIFIED"])
+    return {
+        "total_invoices": total_count,
+        "total_amount": round(total_amount, 2),
+        "flagged_count": flagged_count,
+        "paid_count": paid_count,
+        "pending_amount": round(pending_amount, 2)
+    }
+
+
+@router.get("/{invoice_no}", response_model=InvoiceOut)
+async def get_invoice_detail(
+    invoice_no: str,
+    current_user = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    """
+    Returns details for a specific invoice with role authorization check.
+    """
+    clean_no = invoice_no.strip().upper()
+    invoice = await db.invoices.find_one({"$or": [{"invoice_no": clean_no}, {"id": clean_no}, build_id_query(clean_no)]})
+    if not invoice:
+        raise HTTPException(status_code=404, detail=f"Invoice '{invoice_no}' not found.")
+
+    role = current_user.get("role", "employee")
+    user_id = current_user.get("id", "")
+
+    if role == "employee":
+        raise HTTPException(status_code=403, detail="Forbidden: Employees cannot view vendor invoices.")
+    if role == "vendor" and invoice.get("vendor_id") != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only view invoices issued by your entity.")
+
+    return serialize_doc(invoice)

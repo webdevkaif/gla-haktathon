@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -10,7 +10,12 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Sliders,
-  Bot
+  Bot,
+  Copy,
+  FileSearch,
+  Lock,
+  CheckCircle2,
+  ArrowRight 
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -26,10 +31,8 @@ import {
   Bar 
 } from 'recharts';
 import { formatCurrency, formatPercent, getCategoryColor } from '../utils/formatters';
-import AnimeAgentCinemaHUD from './AnimeAgentCinemaHUD';
-import NarutoShinobiJutsuHUD from './NarutoShinobiJutsuHUD';
-import GhibliMeadowHUD from './GhibliMeadowHUD';
-import GhibliButton from './GhibliButton';
+import { fetchAnomalyDetections } from '../api';
+import GlassmorphismExecutiveHUD from './GlassmorphismExecutiveHUD';
 
 export default function DashboardOverview({ 
   summary, 
@@ -40,7 +43,27 @@ export default function DashboardOverview({
   onToggleChat,
   onTogglePhoneAlerts 
 }) {
-  const [hudTheme, setHudTheme] = useState('GHIBLI'); // 'GHIBLI', 'NARUTO', or 'CYBER'
+  const [anomalyReport, setAnomalyReport] = useState(null);
+  const [isAnomalyLoading, setIsAnomalyLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAnomalies() {
+      try {
+        setIsAnomalyLoading(true);
+        const data = await fetchAnomalyDetections(summary?.month || '2026-10');
+        if (isMounted) setAnomalyReport(data);
+      } catch (err) {
+        console.error('[PyOD Isolation Forest Error]', err);
+      } finally {
+        if (isMounted) setIsAnomalyLoading(false);
+      }
+    }
+    if (summary) {
+      loadAnomalies();
+    }
+    return () => { isMounted = false; };
+  }, [summary?.month, summary?.total_spent]);
 
   if (!summary || !budget) {
     return (
@@ -71,89 +94,17 @@ export default function DashboardOverview({
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* HUD Theme Switcher Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase">
-            Visual Anime & 3D Engine
-          </span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-            Interactive
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-lg">
-          {/* Studio Ghibli Theme Button */}
-          <button
-            onClick={() => setHudTheme('GHIBLI')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              hudTheme === 'GHIBLI'
-                ? 'bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <span>🌿</span>
-            <span>Studio Ghibli Meadow</span>
-          </button>
-
-          {/* 3D Naruto Shinobi Button */}
-          <button
-            onClick={() => setHudTheme('NARUTO')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              hudTheme === 'NARUTO'
-                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <span>🌀</span>
-            <span>3D Naruto Shinobi</span>
-          </button>
-
-          {/* Cyber-Anime Pilot Button */}
-          <button
-            onClick={() => setHudTheme('CYBER')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              hudTheme === 'CYBER'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <span>🤖</span>
-            <span>Cyber-Anime Pilot</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Conditional Active AI Pilot HUD */}
-      {hudTheme === 'GHIBLI' ? (
-        <GhibliMeadowHUD
-          summary={summary}
-          budget={budget}
-          forecast={forecast}
-          onToggleChat={onToggleChat}
-          onTogglePhoneAlerts={onTogglePhoneAlerts}
-          onNavigateTab={onNavigateTab}
-        />
-      ) : hudTheme === 'NARUTO' ? (
-        <NarutoShinobiJutsuHUD
-          summary={summary}
-          budget={budget}
-          forecast={forecast}
-          onToggleChat={onToggleChat}
-          onTogglePhoneAlerts={onTogglePhoneAlerts}
-          onNavigateTab={onNavigateTab}
-        />
-      ) : (
-        <AnimeAgentCinemaHUD
-          summary={summary}
-          budget={budget}
-          forecast={forecast}
-          onToggleChat={onToggleChat}
-          onTogglePhoneAlerts={onTogglePhoneAlerts}
-          onNavigateTab={onNavigateTab}
-        />
-      )}
+      {/* Executive Glassmorphism Intelligence Cockpit */}
+      <GlassmorphismExecutiveHUD
+        summary={summary}
+        budget={budget}
+        forecast={forecast}
+        anomalyReport={anomalyReport}
+        onToggleChat={onToggleChat}
+        onTogglePhoneAlerts={onTogglePhoneAlerts}
+        onNavigateTab={onNavigateTab}
+        onOpenAddExpense={onOpenAddExpense}
+      />
 
       {/* Autonomous Agent Status Banner - Ultra Frosted Glass */}
       <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 glass-panel border border-emerald-500/30 shadow-[0_20px_50px_rgba(16,185,129,0.15)]">
@@ -185,27 +136,126 @@ export default function DashboardOverview({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <GhibliButton
+            <button
               onClick={() => onNavigateTab('simulator')}
-              variant="parchment"
-              icon={Sliders}
-              showSprite={false}
-              className="text-xs py-2 px-3"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/[0.05] hover:bg-white/10 text-slate-200 border border-white/10 hover:border-cyan-400/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
             >
-              Simulate What-If
-            </GhibliButton>
+              <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Simulate What-If</span>
+            </button>
             
-            <GhibliButton
+            <button
               onClick={onToggleChat}
-              variant="forest"
-              icon={Bot}
-              showSprite={true}
-              spritePosition="right"
-              className="text-xs py-2 px-3.5"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
             >
-              Ask Agent
-            </GhibliButton>
+              <Bot className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ask Agent</span>
+            </button>
           </div>
+        </div>
+      </div>
+
+      {/* Hackathon Winning Differentiators Showcase Strip */}
+      <div className="p-6 rounded-3xl glass-panel border border-cyan-500/30 shadow-[0_20px_50px_rgba(6,182,212,0.12)] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+              <ShieldCheck className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="font-extrabold text-white text-base tracking-tight flex items-center gap-2">
+                <span>Hackathon Differentiators</span>
+                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm">
+                  Production Stack
+                </span>
+              </h3>
+              <p className="text-xs text-slate-300">
+                Beyond basic chatbots: Evidence citations • Duplicate detection • Explainable risk scoring • Approval workflow • SHA-256 audit • Exception dashboard
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:scale-105 transition-all shrink-0 w-fit"
+          >
+            <span>Open Enterprise HQ</span>
+            <ArrowRight className="w-3.5 h-3.5 text-cyan-300" />
+          </button>
+        </div>
+
+        {/* 6 Colorful Action Buttons with Micro-Animations */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white shadow-lg shadow-rose-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <AlertTriangle className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">1. Exceptions</span>
+            <span className="text-[10px] text-white/80">High-risk first</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <CheckCircle2 className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">2. Approvals</span>
+            <span className="text-[10px] text-white/80">Friday disbursement</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-lg shadow-amber-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <Copy className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">3. Duplicates</span>
+            <span className="text-[10px] text-white/80">Zero double-pay</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <FileSearch className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">4. Explainable</span>
+            <span className="text-[10px] text-white/80">Exact rule reasons</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <Lock className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">5. SHA-256 Audit</span>
+            <span className="text-[10px] text-white/80">Tamper-evident chain</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab && onNavigateTab('enterprise')}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 text-left transition-all duration-300 hover:scale-[1.04] group border border-white/20"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <Sparkles className="w-4 h-4 text-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            </div>
+            <span className="text-xs font-extrabold block">6. Policy Evidence</span>
+            <span className="text-[10px] text-white/80">Cited source rules</span>
+          </button>
         </div>
       </div>
 
@@ -339,6 +389,98 @@ export default function DashboardOverview({
           </div>
         </div>
       )}
+
+      {/* Small Anomaly Detector Section (PyOD + Isolation Forest) */}
+      <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#0d1527]/90 via-[#101b33]/90 to-[#0d1527]/90 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3.5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-white text-base tracking-tight">
+                  Anomaly Detector
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                  PyOD • Isolation Forest
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Unsupervised machine learning analysis of real MongoDB transactions
+              </p>
+            </div>
+          </div>
+
+          {/* Metric Counter Badge */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {anomalyReport?.has_sufficient_history && (
+              <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 ${
+                anomalyReport.anomalies_detected > 0
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+                  : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+              }`}>
+                <span>{anomalyReport.anomalies_detected} Anomalies Detected</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Anomaly Content */}
+        {isAnomalyLoading ? (
+          <div className="py-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-amber-400 border-t-transparent" />
+            <span>Running Isolation Forest statistical anomaly scan...</span>
+          </div>
+        ) : !anomalyReport?.has_sufficient_history ? (
+          <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-xs text-blue-300 flex items-center gap-3">
+            <Sparkles className="w-5 h-5 shrink-0 text-blue-400" />
+            <span>{anomalyReport?.message || "Insufficient transaction history to detect statistical anomalies. Add at least 4 transactions."}</span>
+          </div>
+        ) : anomalyReport.anomalies_detected === 0 ? (
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300 flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span className="font-semibold">✅ No unusual transactions detected.</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {anomalyReport.anomalies.map((anomaly, idx) => (
+                <div 
+                  key={anomaly.id || idx}
+                  className="p-4 rounded-2xl bg-white/[0.03] border border-amber-500/30 hover:border-amber-400/60 transition-all space-y-2.5 shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-extrabold text-amber-400">
+                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                      <span>⚠️ Anomaly Detected</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      Status: {anomaly.status || "Review Recommended"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Amount</span>
+                      <span className="font-extrabold text-rose-300 text-sm">{formatCurrency(anomaly.amount)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Category</span>
+                      <span className="font-semibold text-slate-200">{anomaly.category}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-slate-300 pt-1 border-t border-white/[0.06]">
+                    <span className="text-slate-400 font-medium">Reason: </span>
+                    <span>{anomaly.reason}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Visual Analytics Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

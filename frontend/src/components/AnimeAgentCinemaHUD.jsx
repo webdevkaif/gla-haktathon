@@ -193,16 +193,16 @@ export default function AnimeAgentCinemaHUD({
         </div>
 
         {/* Right Side: Mode Hologram Selector */}
-        <div className="absolute right-4 sm:right-6 bottom-20 z-20 flex flex-col gap-2 pointer-events-auto">
+        <div className="absolute right-4 sm:right-6 bottom-20 z-20 flex flex-col gap-3 pointer-events-auto">
           <button
             onClick={() => setActiveMode('DEFENSE')}
-            className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all text-left flex items-center gap-1.5 backdrop-blur-md ${
+            className={`px-4.5 py-2.5 rounded-2xl text-xs font-mono font-bold transition-all text-left flex items-center gap-2.5 backdrop-blur-md ${
               activeMode === 'DEFENSE'
                 ? 'bg-cyan-500/90 text-white border border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.5)] scale-105'
-                : 'bg-black/60 text-slate-400 hover:text-white border border-white/10'
+                : 'bg-black/60 text-slate-400 hover:text-white border border-white/10 hover:border-white/30'
             }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5" />
+            <ShieldCheck className="w-4 h-4 text-cyan-300" />
             <span>01 // DEFENSE</span>
           </button>
 
@@ -211,13 +211,13 @@ export default function AnimeAgentCinemaHUD({
               setActiveMode('INVOICE_SCAN');
               if (onNavigateTab) onNavigateTab('invoices');
             }}
-            className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all text-left flex items-center gap-1.5 backdrop-blur-md ${
+            className={`px-4.5 py-2.5 rounded-2xl text-xs font-mono font-bold transition-all text-left flex items-center gap-2.5 backdrop-blur-md ${
               activeMode === 'INVOICE_SCAN'
                 ? 'bg-purple-600/90 text-white border border-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.5)] scale-105'
-                : 'bg-black/60 text-slate-400 hover:text-white border border-white/10'
+                : 'bg-black/60 text-slate-400 hover:text-white border border-white/10 hover:border-white/30'
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-4 h-4 text-purple-300" />
             <span>02 // INVOICE OCR</span>
           </button>
 
@@ -226,13 +226,13 @@ export default function AnimeAgentCinemaHUD({
               setActiveMode('ROADMAP');
               if (onNavigateTab) onNavigateTab('invoices');
             }}
-            className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all text-left flex items-center gap-1.5 backdrop-blur-md ${
+            className={`px-4.5 py-2.5 rounded-2xl text-xs font-mono font-bold transition-all text-left flex items-center gap-2.5 backdrop-blur-md ${
               activeMode === 'ROADMAP'
                 ? 'bg-pink-600/90 text-white border border-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.5)] scale-105'
-                : 'bg-black/60 text-slate-400 hover:text-white border border-white/10'
+                : 'bg-black/60 text-slate-400 hover:text-white border border-white/10 hover:border-white/30'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5" />
+            <TrendingUp className="w-4 h-4 text-pink-300" />
             <span>03 // 90D ROADMAP</span>
           </button>
         </div>
