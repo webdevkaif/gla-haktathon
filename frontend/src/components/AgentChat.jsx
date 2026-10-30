@@ -20,6 +20,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { sendAgentMessage, uploadInvoiceFile, uploadExpenseCSV } from '../api';
+import { sendNativeMobileNotification } from '../utils/mobileNotifications';
 import { formatCurrency } from '../utils/formatters';
 
 const STARTER_PROMPTS = [
@@ -57,6 +58,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -226,16 +228,15 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
     }
   };
 
-  // Handle file upload (Invoice OCR or Excel/CSV Spreadsheets) from chat
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
+  // Process file upload (Invoice OCR or Excel/CSV Spreadsheets)
+  const processUploadedFile = async (file) => {
     if (!file) return;
 
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
 
-    const isSpreadsheet = /\.(csv|xlsx|xls)$/i.test(file.name);
+    const isSpreadsheet = /\.(csv|xlsx|xls|xlsm|xltx|tsv)$/i.test(file.name);
 
     if (isSpreadsheet) {
       try {
@@ -243,6 +244,30 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
         const importedCount = result.imported || 0;
         const skippedCount = result.skipped || 0;
 
+        if (importedCount === 0) {
+          const reason = result.skipped_details?.[0]?.reason || "No valid rows could be imported.";
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              sender: 'user',
+              text: `📊 Uploaded spreadsheet: **${file.name}**`
+            },
+            {
+              id: (Date.now() + 1).toString(),
+              sender: 'agent',
+              text: `⚠️ **Could not import transactions from "${file.name}":**\n\n${reason}\n\n**Expected Columns:**\n• **Date**: e.g. 2026-10-15 or 15/10/2026\n• **Amount**: e.g. 450 or ₹1,200\n• **Description**: e.g. Lunch, Groceries\n• **Category / Payment Method** (optional)`,
+              voiceText: `Could not find valid rows in ${file.name}. Please ensure your sheet has Date, Amount, and Description columns.`,
+              isError: true,
+              suggestedActions: [
+                "How to upload excel sheet?",
+                "How much did I spend this month?",
+                "Detect unusual expenses"
+              ]
+            }
+          ]);
+          return;
+        }
         // User message
         setMessages((prev) => [
           ...prev,
@@ -270,6 +295,9 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
         }
 
         if (onDataMutated) onDataMutated();
+        sendNativeMobileNotification("📲 ExpensePilot: Data Fetch Complete", {
+          body: `Imported ${importedCount} transactions from ${file.name}. Records updated!`
+        });
       } catch (err) {
         setMessages((prev) => [
           ...prev,
@@ -311,14 +339,44 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
     }
   };
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) processUploadedFile(file);
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-xl h-full glass-panel-deep border-l border-white/10 bg-[#070d1d]/90 backdrop-blur-3xl flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.85)] transition-transform"
+        className={`w-full max-w-xl h-full glass-panel-deep border-l border-white/10 bg-[#070d1d]/90 backdrop-blur-3xl flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.85)] transition-transform relative ${
+          isDragging ? 'ring-2 ring-cyan-400/80 bg-[#0a1530]/95' : ''
+        }`}
         onClick={(e) => e.stopPropagation()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setIsDragging(false);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          const droppedFile = e.dataTransfer.files?.[0];
+          if (droppedFile) processUploadedFile(droppedFile);
+        }}
       >
+        {/* Drag and Drop Active Overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 bg-cyan-950/80 backdrop-blur-md flex flex-col items-center justify-center border-2 border-dashed border-cyan-400 m-4 rounded-3xl pointer-events-none animate-fade-in">
+            <Upload className="w-12 h-12 text-cyan-300 animate-bounce mb-3" />
+            <h4 className="text-lg font-bold text-white">Drop your spreadsheet or receipt here!</h4>
+            <p className="text-xs text-cyan-200 mt-1">Supports Excel (.xlsx, .xls, .xlsm) & CSV</p>
+          </div>
+        )}
         
         {/* Voice Agent Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-white/[0.02]">
@@ -563,7 +621,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated }) {
           type="file"
           ref={fileInputRef}
           onChange={handleFileUpload}
-          accept=".pdf,.png,.jpg,.jpeg,.txt,.csv,.xlsx,.xls"
+          accept=".pdf,.png,.jpg,.jpeg,.txt,.csv,.xlsx,.xls,.xlsm,.xltx"
           className="hidden"
         />
 

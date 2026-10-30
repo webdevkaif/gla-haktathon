@@ -23,14 +23,11 @@ def extract_natural_language_expenses(text: str) -> List[Dict[str, Any]]:
     or "I spent ₹350 on dinner yesterday."
     """
     expenses = []
-    
-    # Determine date context
     lowered = text.lower()
     date_val = datetime.utcnow().strftime("%Y-%m-%d")
     if "yesterday" in lowered:
         date_val = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    # Split into clauses by commas, semicolons, or 'and'
     cleaned = re.sub(r'[₹$€£]', ' ', text)
     clauses = re.split(r'[,;\n]|\band\b', cleaned, flags=re.IGNORECASE)
 
@@ -67,7 +64,6 @@ def extract_natural_language_expenses(text: str) -> List[Dict[str, Any]]:
 
     return expenses
 
-
 def strip_markdown_for_speech(text: str) -> str:
     cleaned = re.sub(r'[*_#`~]', '', text)
     cleaned = re.sub(r'\[.*?\]\(.*?\)', '', cleaned)
@@ -76,46 +72,190 @@ def strip_markdown_for_speech(text: str) -> str:
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
 
+async def call_llm_authentically(
+    system_instruction: str,
+    user_prompt: str,
+    temperature: float = 0.35,
+    max_tokens: int = 1000
+) -> Optional[str]:
+    """Calls Groq LLM (with secondary fallback) to produce authentic, empathetic, grounded text."""
+    if settings.GROQ_API_KEY:
+        chosen_model = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
+        headers = {
+            "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": chosen_model,
+            "messages": [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        try:
+            async with httpx.AsyncClient(timeout=18.0) as client:
+                resp = await client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    content = data["choices"][0]["message"]["content"]
+                    if content and content.strip():
+                        return content.strip()
+                elif resp.status_code in (404, 429):
+                    fallback_model = "openai/gpt-oss-120b" if chosen_model != "openai/gpt-oss-120b" else "openai/gpt-oss-20b"
+                    payload["model"] = fallback_model
+                    resp_fallback = await client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
+                    if resp_fallback.status_code == 200:
+                        content = resp_fallback.json()["choices"][0]["message"]["content"]
+                        if content and content.strip():
+                            return content.strip()
+        except Exception as e:
+            print(f"[ExpensePilot AI] LLM error: {e}")
+
+    if settings.GEMINI_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=14.0) as client:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
+                payload = {
+                    "contents": [{"role": "user", "parts": [{"text": f"{system_instruction}\n\nUser Question: {user_prompt}"}]}]
+                }
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    if text and text.strip():
+                        return text.strip()
+        except Exception:
+            pass
+
+    return None
+
+async def build_financial_context(db: Any, user_id: str, curr_month: str) -> str:
+    summary = await tool_get_monthly_spending(db, user_id, curr_month)
+    b_info = await tool_calculate_remaining_budget(db, user_id, curr_month)
+    
+    # Category limits from budget document
+    budget_doc = await db.budgets.find_one({"user_id": user_id, "month": curr_month})
+    category_limits = budget_doc.get("category_limits", {}) if budget_doc else {}
+    
+    # Complete category breakdown
+    cat_lines = []
+    total_spent = summary.get("total_spent", 0.0)
+    for idx, c in enumerate(summary.get("categories", []), start=1):
+        cname = c["category"]
+        camt = float(c["amount"])
+        ccnt = c["count"]
+        pct = round((camt / total_spent * 100), 1) if total_spent > 0 else 0.0
+        limit = category_limits.get(cname)
+        if limit:
+            diff = camt - float(limit)
+            status = f"Over by ₹{diff:,.2f}" if diff > 0 else f"Under by ₹{abs(diff):,.2f}"
+            cat_lines.append(f"| {idx}. {cname} | ₹{camt:,.2f} | {pct}% | {ccnt} | ₹{float(limit):,.2f} | {status} |")
+        else:
+            cat_lines.append(f"| {idx}. {cname} | ₹{camt:,.2f} | {pct}% | {ccnt} | Uncapped | Within bounds |")
+    
+    categories_table_str = "\n".join(cat_lines) if cat_lines else "No categorized spending recorded."
+
+    # Anomalies
+    anomalies = await tool_detect_unusual_expenses(db, user_id, curr_month)
+    anom_lines = []
+    for a in anomalies:
+        anom_lines.append(f"• {a['date']} | {a['description']} | ₹{float(a['amount']):,.2f} ({a['category']}) | Reason: {a['reason']}")
+    anom_str = "\n".join(anom_lines) if anom_lines else "None (All spending is within normal baselines)"
+
+    # Recent 15 transactions
+    cursor = db.expenses.find({"user_id": user_id}).sort("date", -1).limit(15)
+    recent = await cursor.to_list(length=15)
+    recent_lines = []
+    for r in recent:
+        recent_lines.append(f"• {r.get('date')} | {r.get('description')} | ₹{float(r.get('amount', 0)):,.2f} | {r.get('category')} | {r.get('payment_method', 'UPI')}")
+    recent_str = "\n".join(recent_lines) if recent_lines else "No transactions recorded yet."
+
+    over_budget_amt = max(0.0, total_spent - summary['total_budget'])
+    budget_status = f"OVER BUDGET by ₹{over_budget_amt:,.2f}" if over_budget_amt > 0 else f"Within Budget (₹{summary['remaining_budget']:,.2f} remaining)"
+
+    ctx = f"""LIVE DATABASE GROUND TRUTH ({curr_month}):
+• Total Spent: ₹{total_spent:,.2f}
+• Monthly Budget: ₹{summary['total_budget']:,.2f}
+• Budget Status: {budget_status}
+• Percentage Used: {summary['percentage_used']}%
+• Days Elapsed: {summary.get('days_elapsed', 29)} / {summary.get('total_days', 31)} (Days Remaining: {summary.get('days_remaining', 2)})
+• Daily Average Spent So Far: ₹{summary.get('daily_avg_spent', 0):,.2f}/day
+• Safe Daily Remaining Allowance: ₹{b_info.get('daily_budget_remaining', 0):,.2f}/day
+• Total Recorded Transactions Count: {summary.get('expense_count', len(recent))}
+
+COMPLETE CATEGORY-BY-CATEGORY BREAKDOWN (ALL CATEGORIES):
+| Category | Spent | % of Total | Txn Count | Limit | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+{categories_table_str}
+
+FLAGGED UNUSUAL TRANSACTIONS / ANOMALIES:
+{anom_str}
+
+RECENT RECORDED TRANSACTIONS (Latest 15):
+{recent_str}
+"""
+    return ctx
+
+SYSTEM_PERSONA = """You are ExpensePilot AI, a genuine, warm, and highly authentic personal financial mentor and AI copilot.
+
+MANDATORY RULES FOR DATA ACCURACY & COMPLETENESS:
+1. 100% COMPLETE & EXACT DATA:
+   - When the user asks about their spending, budget, category breakdown, or transactions (e.g. "pura data sahi do", "actual me complete data shi de", "show breakdown", "all expenses", "kitna kharcha hua"), YOU MUST PROVIDE THE COMPLETE, EXACT NUMBERS from the LIVE DATABASE GROUND TRUTH above.
+   - Do NOT omit any categories. Present ALL categories with their exact ₹ amounts, percentages, and transaction counts.
+   - Present category breakdowns and summaries in clear, scannable Markdown tables or well-structured bullet lists with exact amounts in ₹.
+   - Accurately state whether the user is over budget (and by how much in ₹) or under budget.
+2. EMPATHETIC & AUTHENTIC MENTORSHIP:
+   - Speak with warmth, honesty, and genuine care. Never be robotic, dismissive, or vague.
+   - Understand real-world Indian budgeting: UPI payments, Swiggy/Zomato, Blinkit, groceries, metro, fuel, EMIs.
+3. LANGUAGE MATCHING:
+   - If the user writes or speaks in Hindi or Hinglish (e.g. 'kitna bacha hai', 'kya karu', 'bhai pura data sahi de', 'kaha gaya paisa'), reply in natural, fluent, friendly Hinglish.
+   - If the user writes in English, reply in clean, engaging, articulate English.
+4. STRICT TRUTH:
+   - Never invent or hallucinate figures or dates. All numbers must strictly align with the ground truth data above.
+"""
+
 async def process_agent_message(
     db: Any,
     user_id: str,
     message: str
 ) -> Dict[str, Any]:
     """
-    Core AI Agent reasoning loop:
-    Observe -> Analyze -> Decide -> Act -> Verify.
+    Core AI Agent reasoning loop with authentic, empathetic intelligence.
     """
     msg_lower = message.lower().strip()
     curr_month = datetime.utcnow().strftime("%Y-%m")
+    fin_context = await build_financial_context(db, user_id, curr_month)
 
-    # 0a. Check for Self-Introduction / Voice Agent Identity
+    # ─────────────────────────────────────────────────────────────────────────
+    # 0a. Check for Self-Introduction / Identity
+    # ─────────────────────────────────────────────────────────────────────────
     if any(q in msg_lower for q in [
         "introduce yourself", "who are you", "what can you do", "tell me about yourself", 
         "introduce", "hello voice agent", "hi voice agent", "voice agent", "your capabilities"
     ]):
-        summary = await tool_get_monthly_spending(db, user_id, curr_month)
-        voice_script = (
-            "Hello! I am ExpensePilot Voice AI, your autonomous financial copilot. "
-            "I continuously audit your expenses, track your uploaded invoices, simulate budget scenarios, "
-            "and generate personalized financial roadmap PDF reports. How can I assist you right now?"
-        )
-        reply = (
-            "🎙️ **Hello! I'm ExpensePilot Voice AI** — Your Autonomous Financial & Invoice Copilot 🚀\n\n"
-            "I operate on an autonomous **Observe → Analyze → Decide → Act** intelligence cycle. "
-            "Here is what I can do for you in real-time:\n\n"
-            "• 🗣️ **Voice & Audio Interaction**: Speak to me directly using your microphone or listen with voice narration.\n"
-            "• 📑 **Invoice & Receipt Auditing**: Inspect your uploaded invoices, extract line items, calculate tax deductions, and flag price anomalies.\n"
-            "• 🗺️ **Financial Roadmap (PDF)**: Generate an executive-level 3-phase financial defense and wealth roadmap with instant PDF download.\n"
-            "• 🔮 **Predictive Forecasting & What-If**: Simulate budget changes (e.g., *'What if I reduce shopping by 20%?'*) before you spend.\n"
-            "• 🛡️ **Autonomous Runaway & Anomaly Defense**: Statistically audit spending velocity to keep you under budget.\n\n"
-            f"📊 **Current Status ({curr_month})**: Spent ₹{summary['total_spent']:,.0f} of ₹{summary['total_budget']:,.0f} budget ({summary['percentage_used']}% used).\n\n"
-            "What would you like me to do next?"
-        )
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
+
+The user asked you to introduce yourself.
+Introduce yourself warmly as ExpensePilot AI. Give a genuine, engaging overview of your capabilities (voice interaction, live expense tracking, invoice auditing, roadmap PDF generation, what-if budget simulations). Mention their current month spending status naturally with exact figures. Keep it warm, concise, and authentic."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            summary = await tool_get_monthly_spending(db, user_id, curr_month)
+            ai_reply = (
+                "🎙️ **Hello! I'm ExpensePilot Voice AI** — Your Autonomous Financial Copilot 🚀\n\n"
+                f"I'm here to actively protect your money and guide your spending. For **{curr_month}**, you've spent ₹{summary['total_spent']:,.0f} of your ₹{summary['total_budget']:,.0f} budget.\n\n"
+                "• 🗣️ **Voice & Natural Chat**: Speak or text me your daily expenses\n"
+                "• 📑 **Invoice Auditing**: Upload receipts via the paperclip for automatic audit\n"
+                "• 🗺️ **PDF Roadmap**: Generate an executive 90-day financial roadmap\n"
+                "• 🔮 **What-If Simulations**: Test big purchases before making them\n\n"
+                "How can I assist you right now?"
+            )
         return {
-            "reply": reply,
-            "voice_text": voice_script,
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "tool_called": "agent_self_introduction",
-            "tool_result": {"status": "active", "voice_ready": True},
+            "tool_result": {"status": "active"},
             "suggested_actions": [
                 "Talk about my uploaded invoices",
                 "Create PDF roadmap and give it to me",
@@ -124,29 +264,49 @@ async def process_agent_message(
             ]
         }
 
-    # 0b. Check for CSV / Excel Spreadsheets Upload questions
+    # ─────────────────────────────────────────────────────────────────────────
+    # 0b. Spreadsheet / Excel Upload Guidance & Troubleshooting
+    # ─────────────────────────────────────────────────────────────────────────
     if any(q in msg_lower for q in [
+        "failed to import", "import error", "excel sheet", "excel import", "excel error",
         "upload csv", "upload excel", "import csv", "import excel", "spreadsheet", 
-        "upload file", "how to upload", "upload expenses", "import expenses"
+        "upload file", "how to upload", "upload expenses", "import expenses",
+        "not taking excel", "not accepting excel", "excel files", "excel file", 
+        "excel upload", "excel nahi", "file nahi le raha"
     ]):
-        reply = (
-            "📊 **How to Upload Excel & CSV Spreadsheets:**\n\n"
-            "You can upload your bulk expense transactions in two ways:\n\n"
-            "1. 📎 **Directly in this Chat**: Click the **Paperclip** icon at the bottom of this chat window and pick your `.csv` or `.xlsx` file. I will automatically parse, categorize, and load them into your database!\n"
-            "2. 📋 **From the Transactions List**: Go to the **Expenses / Transactions** tab and click the green **'Import CSV'** button next to 'Export'.\n\n"
-            "📝 **Expected Columns** (any column order):\n"
-            "• `date` (e.g. 2026-10-15 or 15/10/2026)\n"
-            "• `amount` (e.g. 450.00)\n"
-            "• `description` (e.g. Office lunch)\n"
-            "• `category` *(optional, auto-detected if left empty)*\n"
-            "• `payment_method` *(optional, e.g. UPI, Card, Cash)*"
-        )
-        voice_script = "You can upload Excel or CSV files by tapping the paperclip icon in this chat or clicking Import CSV in the transactions table."
+        prompt = f"""{SYSTEM_PERSONA}
+The user is asking about or troubleshooting an Excel / CSV spreadsheet upload (e.g. reporting that it's not taking excel files, or asking how to import).
+Respond warmly, authentically, and clearly in the user's language (Hindi/Hinglish if they asked in Hindi/Hinglish, otherwise English):
+1. Reassure them that Excel (.xlsx, .xls, .xlsm) and CSV files are 100% fully supported.
+2. Explain that the system now features automatic smart-detection:
+   - Bank statements (SBI, HDFC, ICICI, Axis, Paytm, etc.) are automatically parsed, even with bank headers at the top and separate Debit/Credit columns!
+   - Indian currency signs (₹, Rs., /-), commas, and negative debits are auto-cleaned.
+   - Excel dates (serial numbers, DD/MM/YYYY, YYYY-MM-DD, timestamps) are auto-converted.
+   - Column order does not matter; it automatically infers Date, Amount, and Description.
+3. Tell them how to upload right now:
+   - Click the Paperclip (📎) icon right here at the bottom of this chat.
+   - Or drag and drop the Excel file directly into this chat window.
+   - Or go to the Expenses / Transactions tab and click 'Import CSV'.
+Keep your reply structured, respectful, and genuinely helpful."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            ai_reply = (
+                "📊 **Excel & CSV Spreadsheet Upload Guide:**\n\n"
+                "Aapki Excel file bilkul support hoti hai! System mein ab **Smart Auto-Detection** active hai:\n\n"
+                "1. 📎 **Directly in this Chat**: Click the **Paperclip (📎)** icon below or drag & drop your `.xlsx`, `.xls`, or `.csv` file directly into this chat.\n"
+                "2. 📋 **From Expenses Tab**: Go to the **Expenses** tab and click the **'Import CSV'** button.\n\n"
+                "✨ **Ab sab kuch automatically handle hota hai:**\n"
+                "• **Bank Statements**: SBI, HDFC, ICICI, Axis ke statements automatically parse ho jayenge (chahe Debit aur Credit separate columns mein ho).\n"
+                "• **Currency**: ₹ symbols, commas (`1,500`), aur `/-` automatically clean ho jayenge.\n"
+                "• **Dates**: `DD/MM/YYYY`, `YYYY-MM-DD`, ya Excel date numbers sab detect ho jate hain.\n"
+                "• **Columns**: Bas Date, Amount (ya Debit), aur Description hone chahiye (kisi bhi order mein).\n\n"
+                "Kripya apni Excel file dobara attach karein, main turant import karke aapke transactions add kar dunga! 🚀"
+            )
         return {
-            "reply": reply,
-            "voice_text": voice_script,
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "tool_called": "agent_upload_guidance",
-            "tool_result": {"status": "ready", "supported_formats": [".csv", ".xlsx", ".xls"]},
+            "tool_result": {"status": "ready", "supported_formats": [".xlsx", ".xls", ".xlsm", ".csv"]},
             "suggested_actions": [
                 "How much did I spend this month?",
                 "Detect unusual expenses",
@@ -154,7 +314,9 @@ async def process_agent_message(
             ]
         }
 
-    # 0c. Check for Uploaded Invoices Discussion ("talk about uploaded invoices", "invoices", "receipts")
+    # ─────────────────────────────────────────────────────────────────────────
+    # 0c. Uploaded Invoices Discussion
+    # ─────────────────────────────────────────────────────────────────────────
     if any(q in msg_lower for q in [
         "invoice", "invoices", "uploaded invoice", "receipt", "receipts", "audit invoice",
         "talk about my invoices", "discuss invoices", "show my invoices", "bills"
@@ -166,37 +328,35 @@ async def process_agent_message(
 
         total_inv_amt = sum(float(inv.get("amount", 0.0)) for inv in invoices)
         anomalous_invoices = [inv for inv in invoices if inv.get("is_anomaly")]
-        
-        reply_lines = [
-            f"📑 **Uploaded Invoices & Liabilities Audit**",
-            f"Found **{len(invoices)} recorded invoices** totaling **₹{total_inv_amt:,.2f}** for your account.\n"
-        ]
-        
-        for inv in invoices[:5]:
-            status_emoji = "⚠️" if inv.get("is_anomaly") else "✅"
-            tax_str = f" (incl. ₹{inv['tax']:,.2f} GST)" if inv.get("tax") else ""
-            reply_lines.append(f"{status_emoji} **{inv.get('vendor', 'Merchant')}**: ₹{inv.get('amount', 0):,.2f} on {inv.get('date')} [{inv.get('category')}]{tax_str}")
-            if inv.get("items"):
-                items_summary = ", ".join([f"{it['name']} (x{it.get('quantity', 1)})" for it in inv["items"][:2]])
-                reply_lines.append(f"   └ *Items*: {items_summary}")
-            if inv.get("is_anomaly"):
-                reply_lines.append(f"   └ 🚨 *Audit Flag*: {inv.get('anomaly_reason')}")
+        inv_summary = "\n".join([f"- {inv.get('vendor')}: ₹{inv.get('amount', 0):,.2f} on {inv.get('date')} [{inv.get('category')}]{' (FLAGGED ANOMALY: ' + inv.get('anomaly_reason') + ')' if inv.get('is_anomaly') else ''}" for inv in invoices[:5]])
 
-        reply_lines.append("")
-        if anomalous_invoices:
-            reply_lines.append(f"🔍 **Autonomous Audit Findings**: {len(anomalous_invoices)} invoice requires attention. E.g., {anomalous_invoices[0]['vendor']} was flagged for irregular pricing.")
-        else:
-            reply_lines.append("🔍 **Autonomous Audit Findings**: All invoice amounts match approved category spending baselines and GST deductions are verified.")
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
 
-        voice_script = (
-            f"I audited your {len(invoices)} uploaded invoices totaling {int(total_inv_amt)} rupees. "
-            f"Recent vendors include {invoices[0].get('vendor', 'Apple Store')} and {invoices[1].get('vendor', 'Starbucks') if len(invoices) > 1 else ''}. "
-            f"{'One anomalous charge was detected and flagged for review.' if anomalous_invoices else 'All items are audited and in order.'}"
-        )
+The user wants to discuss their uploaded invoices and receipts.
+Here is the real invoice data from the database:
+Total recorded invoices: {len(invoices)}, totaling ₹{total_inv_amt:,.2f}.
+Recent invoices:
+{inv_summary}
+
+Anomalies flagged: {len(anomalous_invoices)} invoice(s).
+Give an authentic, sharp invoice audit recap with exact figures. Highlight any anomalies (e.g. high price flags) and explain whether their business/personal expenses look sound and tax-deductible."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            reply_lines = [
+                f"📑 **Uploaded Invoices & Liabilities Audit**",
+                f"Found **{len(invoices)} recorded invoices** totaling **₹{total_inv_amt:,.2f}** for your account.\n"
+            ]
+            for inv in invoices[:5]:
+                status_emoji = "⚠️" if inv.get("is_anomaly") else "✅"
+                reply_lines.append(f"{status_emoji} **{inv.get('vendor', 'Merchant')}**: ₹{inv.get('amount', 0):,.2f} on {inv.get('date')} [{inv.get('category')}]")
+                if inv.get("is_anomaly"):
+                    reply_lines.append(f"   └ 🚨 *Audit Flag*: {inv.get('anomaly_reason')}")
+            ai_reply = "\n".join(reply_lines)
 
         return {
-            "reply": "\n".join(reply_lines),
-            "voice_text": voice_script,
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "tool_called": "audit_uploaded_invoices",
             "tool_result": {
                 "total_invoices": len(invoices),
@@ -211,7 +371,9 @@ async def process_agent_message(
             ]
         }
 
-    # 0c. Check for Financial Roadmap & PDF Generation Intent
+    # ─────────────────────────────────────────────────────────────────────────
+    # 0d. Financial Roadmap & PDF Generation
+    # ─────────────────────────────────────────────────────────────────────────
     if any(q in msg_lower for q in [
         "roadmap", "pdf roadmap", "create pdf", "give roadmap", "financial roadmap",
         "download roadmap", "create pdf roadmap and give you", "give me roadmap", 
@@ -230,29 +392,34 @@ async def process_agent_message(
 
         download_url = f"http://127.0.0.1:8000/api/analytics/roadmap/pdf?month={curr_month}&user_id={user_id}"
 
-        reply = (
-            f"🗺️ **ExpensePilot Autonomous Financial Roadmap (90-Day Defense & Wealth Plan)**\n\n"
-            f"I have synthesized your spending velocity, uploaded invoices, and savings goals into an executive diagnostic.\n\n"
-            f"• **Financial Health Score**: **{health_score}/100**\n"
-            f"• **Current Monthly Outflow**: ₹{total_spent:,.0f} (Cap: ₹{total_budget:,.0f})\n"
-            f"• **Projected 90-Day Capital Preserved**: **+₹15,000**\n\n"
-            f"**Three-Phase Execution Strategy:**\n"
-            f"1. **Phase 1 (Days 1–30) — Runway Defense**: Cap discretionary velocity at ₹150/day. Enforce 48-hour cool-off rule on purchases >₹1,000. Target savings: ₹3,200/mo.\n"
-            f"2. **Phase 2 (Days 31–60) — Run-Rate Realignment**: Enforce envelopes (Food ₹4,500/mo, Groceries ₹3,000/mo). Negotiate utility bills. Accumulate ₹9,500 in emergency reserves.\n"
-            f"3. **Phase 3 (Days 61–90) — Wealth Acceleration**: Reach 50% milestone of Primary Savings Goal (₹15,000). Keep burn rate <85%.\n\n"
-            f"📄 **Your PDF Document is Ready!**\n"
-            f"You can download the full printable PDF roadmap report directly using the download button below:"
-        )
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
 
-        voice_script = (
-            f"I have created your personalized 90-day financial roadmap and compiled it into a PDF report. "
-            f"Your current financial health score is {health_score} out of 100, and our plan targets 15,000 rupees in savings over the next 90 days. "
-            f"You can click the download button right now to save your roadmap."
-        )
+The user asked for their 90-day Financial Roadmap and PDF report.
+Their current financial health score is {health_score}/100.
+Current Outflow: ₹{total_spent:,.2f} of ₹{total_budget:,.2f}.
+Briefly outline the 3 phases:
+- Phase 1 (Days 1-30): Runway defense and tightening discretionary leaks
+- Phase 2 (Days 31-60): Run-rate realignment and emergency reserves
+- Phase 3 (Days 61-90): Wealth acceleration towards target savings
+Reassure them that the official printable PDF report has been compiled and is ready for download right below."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            ai_reply = (
+                f"🗺️ **ExpensePilot 90-Day Financial Roadmap**\n\n"
+                f"• **Financial Health Score**: **{health_score}/100**\n"
+                f"• **Current Outflow**: ₹{total_spent:,.0f} of ₹{total_budget:,.0f}\n"
+                f"• **Projected 90-Day Capital Preserved**: **+₹15,000**\n\n"
+                f"**Execution Phases:**\n"
+                f"1. **Phase 1 (Days 1–30)**: Cap discretionary velocity to ₹150/day and enforce 48-hour cool-off.\n"
+                f"2. **Phase 2 (Days 31–60)**: Envelope budgeting on Food & Groceries; build ₹9,500 emergency buffer.\n"
+                f"3. **Phase 3 (Days 61–90)**: Accelerate savings goal and maintain burn rate <85%.\n\n"
+                f"📄 **Your PDF Document is Ready!** Tap the download button below:"
+            )
 
         return {
-            "reply": reply,
-            "voice_text": voice_script,
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "pdf_download_url": download_url,
             "tool_called": "generate_financial_roadmap_pdf",
             "tool_result": {
@@ -268,7 +435,75 @@ async def process_agent_message(
             ]
         }
 
-    # 0d. Check for Phone Number Pairing / Connection ("add my number", "connect my phone", "my number is")
+    # ─────────────────────────────────────────────────────────────────────────
+    # 0e. AI Spending Risk Prediction & Runway Assessment
+    # ─────────────────────────────────────────────────────────────────────────
+    if any(q in msg_lower for q in [
+        "risk", "risk predictor", "risk analysis", "risk score", "predict risk",
+        "kab tak chalega", "runway", "exhaustion", "burn velocity", "khatam ho jayega",
+        "spending risk", "financial risk", "risk prediction"
+    ]):
+        from backend.app.services.risk_predictor import calculate_ai_risk_prediction
+        risk_data = await calculate_ai_risk_prediction(db, user_id, curr_month)
+        ai_assess = risk_data.get("ai_assessment", {})
+        
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
+
+The user is asking about their Financial Spending Risk Prediction and budget runway.
+Ground Truth Multi-Factor Risk Assessment Metrics:
+- Calculated Risk Score: {risk_data.get('risk_score')}/100 ({risk_data.get('risk_level')} Risk)
+- Burn Velocity: {risk_data.get('velocity_ratio')}x safe linear burn rate
+- Exhaustion Runway Status: {risk_data.get('exhaustion_status')}
+- Safe Daily Remaining Target: ₹{risk_data.get('safe_daily_allowance'):,.2f}/day
+- Actual Daily Average Burn: ₹{risk_data.get('actual_daily_avg'):,.2f}/day
+- Projected Month-End Overrun: ₹{risk_data.get('projected_overrun'):,.2f}
+- Key Risk Factors: {', '.join([f['factor'] + ' (' + f['impact'] + ')' for f in risk_data.get('risk_factors', [])])}
+- AI Recommendations: {'; '.join(ai_assess.get('top_recommendations', []))}
+
+Present an authoritative, empathetic, and scannable breakdown:
+1. State the exact Risk Score ({risk_data.get('risk_score')}/100) and Level.
+2. Clearly explain the exhaustion runway (e.g. will the budget last or when it runs out).
+3. Compare their current daily burn (₹{risk_data.get('actual_daily_avg'):,.0f}/day) against safe daily allowance (₹{risk_data.get('safe_daily_allowance'):,.0f}/day).
+4. Give 3 concrete, realistic action steps to de-risk their finances immediately.
+Match the user's language (natural Hinglish if they spoke in Hindi/Hinglish, otherwise English)."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            ai_reply = (
+                f"🚨 **ExpensePilot AI Spending Risk Assessment**\n\n"
+                f"• **Risk Score**: **{risk_data.get('risk_score')}/100** ({risk_data.get('risk_level')} Risk)\n"
+                f"• **Burn Velocity**: **{risk_data.get('velocity_ratio')}x** of safe pace\n"
+                f"• **Runway Status**: {risk_data.get('exhaustion_status')}\n"
+                f"• **Safe Daily Target**: **₹{risk_data.get('safe_daily_allowance'):,.0f}/day** (Current: ₹{risk_data.get('actual_daily_avg'):,.0f}/day)\n\n"
+                f"🎯 **Actionable Mitigation Countermeasures:**\n"
+                + "\n".join([f"• {r}" for r in ai_assess.get('top_recommendations', [
+                    f"Cap daily spend to ₹{risk_data.get('safe_daily_allowance'):,.0f}/day",
+                    "Freeze discretionary dining & entertainment orders",
+                    "Audit top expense categories"
+                ])])
+            )
+
+        return {
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
+            "tool_called": "predict_spending_risk",
+            "tool_result": {
+                "risk_score": risk_data.get("risk_score"),
+                "risk_level": risk_data.get("risk_level"),
+                "exhaustion_status": risk_data.get("exhaustion_status"),
+                "safe_daily_allowance": risk_data.get("safe_daily_allowance")
+            },
+            "suggested_actions": [
+                "How much did I spend this month?",
+                "Simulate what-if purchase",
+                "Create PDF roadmap and give it to me",
+                "Detect unusual expenses"
+            ]
+        }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # 0f. Phone Number Connection / Dispatch
+    # ─────────────────────────────────────────────────────────────────────────
     is_phone_add = any(q in msg_lower for q in [
         "add my number", "add number", "connect my phone", "connect phone", "connect my number",
         "pair my phone", "pair phone", "register my phone", "register phone", "save my number",
@@ -279,240 +514,188 @@ async def process_agent_message(
     if is_phone_add and phone_match:
         from backend.app.services.messaging import update_phone_settings, dispatch_phone_message
         raw_num = phone_match.group(1).strip()
-        # Add default country code if 10-digit number without +
         clean_digits = re.sub(r'\D', '', raw_num)
-        if len(clean_digits) == 10 and not raw_num.startswith('+'):
-            formatted_phone = f"+91 {clean_digits[:5]} {clean_digits[5:]}"
-        else:
-            formatted_phone = raw_num
+        formatted_phone = f"+91 {clean_digits[:5]} {clean_digits[5:]}" if len(clean_digits) == 10 and not raw_num.startswith('+') else raw_num
 
-        updated_settings = await update_phone_settings(db, user_id, {"phone_number": formatted_phone})
-        
-        # Dispatch welcome verification message
-        welcome_text = (
-            f"🚀 ExpensePilot AI Connected! Your phone ({formatted_phone}) is successfully paired with your autonomous financial copilot. "
-            "You will receive daily budget allowances, invoice audits, and anomaly alerts."
-        )
+        await update_phone_settings(db, user_id, {"phone_number": formatted_phone})
+        welcome_text = f"ExpensePilot AI Connected! Your phone ({formatted_phone}) is paired with your autonomous financial copilot."
         dispatched = await dispatch_phone_message(
-            db=db,
-            user_id=user_id,
-            phone_number=formatted_phone,
-            message_type="PHONE_CONNECTED",
-            channel="SMS",
-            content=welcome_text
+            db=db, user_id=user_id, phone_number=formatted_phone,
+            message_type="PHONE_CONNECTED", channel="SMS", content=welcome_text
         )
 
         reply = (
-            f"✅ **Phone Number Successfully Connected & Paired!**\n\n"
-            f"• **Paired Mobile Number**: `{formatted_phone}`\n"
-            f"• **Gateway Status**: **Active & Verified** (Dispatch ID: `{dispatched['dispatch_id']}`)\n"
-            f"• **Channels Enabled**: **SMS** & **WhatsApp**\n\n"
-            f"📲 **Verification Message Dispatched:**\n"
-            f"> \"{welcome_text}\"\n\n"
-            f"Your phone is now linked. You will receive 9:00 PM daily budget recaps, critical anomaly alerts, and roadmap links."
+            f"✅ **Phone Number Paired & Connected!**\n\n"
+            f"• **Mobile**: `{formatted_phone}`\n"
+            f"• **Channel**: **SMS & WhatsApp**\n"
+            f"• **Status**: Active (Dispatch ID: `{dispatched['dispatch_id']}`)\n\n"
+            f"You will now receive automatic evening spending digests, anomaly alerts, and roadmap links on your phone."
         )
-
-        voice_script = f"Your phone number {formatted_phone} has been connected and paired. A verification message was dispatched to your device."
-
         return {
             "reply": reply,
-            "voice_text": voice_script,
+            "voice_text": f"Your phone number {formatted_phone} has been paired successfully.",
             "tool_called": "connect_phone_number",
-            "tool_result": {
-                "phone_number": formatted_phone,
-                "status": "connected",
-                "dispatch_id": dispatched["dispatch_id"]
-            },
+            "tool_result": {"phone_number": formatted_phone, "status": "connected"},
             "suggested_actions": [
                 "Send daily summary to my phone",
-                "Send roadmap link to my phone via WhatsApp",
-                "How much can I spend per day?",
-                "Predict my monthly spending"
-            ]
-        }
-
-    # 0e. Check for Phone Messaging / SMS Intent ("send to my phone", "text me", "whatsapp me")
-    is_phone_dispatch = (
-        any(q in msg_lower for q in [
-            "phone", "mobile", "number", "text me", "sms", "whatsapp", "call me"
-        ]) and any(w in msg_lower for w in [
-            "send", "text", "notify", "dispatch", "message", "forward"
-        ])
-    ) or any(q in msg_lower for q in [
-        "text me", "whatsapp me", "send sms", "send to phone", "send this to my phone", "send to my phone"
-    ])
-    if is_phone_dispatch:
-        from backend.app.services.messaging import get_or_create_phone_settings, dispatch_phone_message
-        phone_doc = await get_or_create_phone_settings(db, user_id)
-        
-        # Check if user mentioned a new phone number in the message
-        phone_match = re.search(r'(\+?\d[\d\s\-]{8,14}\d)', message)
-        target_phone = phone_match.group(1).strip() if phone_match else phone_doc.get("phone_number", "+91 98765 43210")
-
-        # Determine channel
-        channel = "WhatsApp" if "whatsapp" in msg_lower else "SMS"
-
-        # Construct message content based on context
-        b_info = await tool_calculate_remaining_budget(db, user_id, curr_month)
-        sms_body = (
-            f"📱 ExpensePilot AI Update: "
-            f"Month: {curr_month}. Spent: ₹{b_info['total_spent']:,.0f} of ₹{b_info['total_budget']:,.0f}. "
-            f"Safe Allowance: ₹{b_info['daily_budget_remaining']:,.0f}/day with {b_info['days_remaining']} days left. "
-            f"Roadmap & Audits active."
-        )
-
-        dispatched = await dispatch_phone_message(
-            db=db,
-            user_id=user_id,
-            phone_number=target_phone,
-            message_type="AGENT_PHONE_DISPATCH",
-            channel=channel,
-            content=sms_body
-        )
-
-        reply = (
-            f"📲 **Message Sent to Your Phone!**\n\n"
-            f"• **Destination Number**: `{target_phone}`\n"
-            f"• **Channel**: **{channel}**\n"
-            f"• **Delivery Status**: **{dispatched['status']}** (Dispatch ID: `{dispatched['dispatch_id']}`)\n\n"
-            f"**Content Dispatched:**\n"
-            f"> \"{sms_body}\"\n\n"
-            f"💡 *Tip: You can change notification channels or update your phone number anytime in the Phone Alerts modal.*"
-        )
-
-        voice_script = f"I have sent your financial recap to your phone number {target_phone} via {channel}. Delivery is confirmed."
-
-        return {
-            "reply": reply,
-            "voice_text": voice_script,
-            "tool_called": "dispatch_phone_notification",
-            "tool_result": dispatched,
-            "suggested_actions": [
-                "Send to my phone via WhatsApp",
                 "Create PDF roadmap and give it to me",
-                "How much can I spend per day?",
-                "Predict my monthly spending"
+                "How much can I spend per day?"
             ]
         }
 
-    # 1. Check for Expense Addition Intent
+    # ─────────────────────────────────────────────────────────────────────────
+    # 1. Natural Language Expense Addition
+    # ─────────────────────────────────────────────────────────────────────────
     extracted_items = extract_natural_language_expenses(message)
-    if extracted_items and any(w in msg_lower for w in ["spent", "bought", "paid", "record", "add", "yesterday", "today", "₹"]):
+    if extracted_items and any(w in msg_lower for w in ["spent", "bought", "paid", "record", "add", "yesterday", "today", "₹", "kharch", "diye"]):
         added_records = []
-        unusual_warnings = []
-
         for item in extracted_items:
             rec = await tool_add_expense(
-                db=db,
-                user_id=user_id,
-                amount=item["amount"],
-                category=item["category"],
-                description=item["description"],
-                date_str=item["date"]
+                db=db, user_id=user_id,
+                amount=item["amount"], category=item["category"],
+                description=item["description"], date_str=item["date"]
             )
             added_records.append(rec)
-            if rec.get("is_unusual"):
-                unusual_warnings.append(f"⚠️ {rec['category']}: {rec['anomaly_reason']}")
 
-        # Fetch updated monthly budget
         b_info = await tool_calculate_remaining_budget(db, user_id, curr_month)
-        
-        reply_lines = [
-            f"✅ Recorded {len(added_records)} expense{'s' if len(added_records) > 1 else ''} successfully!",
-            ""
-        ]
-        for r in added_records:
-            reply_lines.append(f"• **₹{r['amount']:,.0f}** for *{r['description']}* ({r['category']}) on {r['date']}")
+        added_txt = ", ".join([f"₹{r['amount']:,.2f} for {r['description']} ({r['category']})" for r in added_records])
 
-        reply_lines.append("")
-        reply_lines.append(f"📊 **Updated Status**: ₹{b_info['total_spent']:,.0f} spent of ₹{b_info['total_budget']:,.0f} budget ({b_info['percentage_used']}% used).")
-        reply_lines.append(f"💡 You have **₹{b_info['remaining_budget']:,.0f}** left (₹{b_info['daily_budget_remaining']:,.0f}/day for remaining {b_info['days_remaining']} days).")
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
 
-        if unusual_warnings:
-            reply_lines.append("")
-            reply_lines.append("**Unusual Pattern Detected:**")
-            reply_lines.extend(unusual_warnings)
+ACTION TAKEN BY SYSTEM:
+Successfully recorded {len(added_records)} expense(s): {added_txt}.
+Updated Budget Status: Total spent is now ₹{b_info['total_spent']:,.2f} of ₹{b_info['total_budget']:,.2f} ({b_info['percentage_used']}% consumed). Remaining budget: ₹{b_info['remaining_budget']:,.2f} with {b_info['days_remaining']} days left in {curr_month}.
+
+Confirm the recorded transaction with exact amounts. State the new exact total spent and remaining budget clearly. Give candid, practical advice on remaining days."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            ai_reply = (
+                f"✅ **Recorded {len(added_records)} expense(s) successfully!**\n\n"
+                f"• {added_txt}\n\n"
+                f"📊 **Updated Status**: ₹{b_info['total_spent']:,.2f} spent of ₹{b_info['total_budget']:,.2f} budget ({b_info['percentage_used']}% used).\n"
+                f"💡 Remaining safe allowance: **₹{b_info['remaining_budget']:,.2f}** (₹{b_info['daily_budget_remaining']:,.2f}/day for remaining {b_info['days_remaining']} days)."
+            )
 
         return {
-            "reply": "\n".join(reply_lines),
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "tool_called": "add_expense",
             "tool_result": added_records,
             "structured_expenses_added": added_records,
             "suggested_actions": [
                 "How much can I spend per day?",
                 "Predict my monthly spending",
-                "Show category breakdown"
+                "Where did most of my money go?"
             ]
         }
 
-    # 2. Check for Purchase Affordability ("Can I afford ₹...", "What if I spend ₹...")
-    afford_match = re.search(r'(?:can i afford|what if i spend|what happens if i spend)\s*(?:a|an)?\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d{1,2})?)\s*(?:on\s+([a-zA-Z\s]+))?', msg_lower)
+    # ─────────────────────────────────────────────────────────────────────────
+    # 2. Purchase Affordability ("Can I afford ₹...", "What if I spend...")
+    # ─────────────────────────────────────────────────────────────────────────
+    afford_match = re.search(r'(?:can i afford|what if i spend|what happens if i spend|kya me le sakta hu|kya me afford kar sakta hu)\s*(?:a|an)?\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d{1,2})?)\s*(?:on\s+([a-zA-Z\s]+))?', msg_lower)
     if afford_match:
         amt = float(afford_match.group(1))
         cat = afford_match.group(2) or "General"
         sim_res = await tool_simulate_what_if(
-            db=db,
-            user_id=user_id,
-            upcoming_purchase_amount=amt,
-            month_str=curr_month
+            db=db, user_id=user_id,
+            upcoming_purchase_amount=amt, month_str=curr_month
         )
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
+
+The user is asking: Can I afford a purchase of ₹{amt:,.2f} on {cat}?
+Mathematical simulation result:
+- Current spend: ₹{sim_res['current_total_spend']:,.2f}
+- Spend after purchase: ₹{sim_res['projected_new_total']:,.2f} of budget ₹{sim_res['monthly_budget']:,.2f}
+- Revised remaining budget: ₹{sim_res['new_remaining_budget']:,.2f}
+- Revised daily allowance: ₹{sim_res['new_daily_safe_target']:,.2f}/day
+- Can comfortably afford: {sim_res.get('can_afford')}
+
+Give a candid, authentic, and empathetic answer. Directly answer Yes or No first with warmth, explain the exact math and numbers, and give a realistic recommendation."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            ai_reply = sim_res["advice"]
+
         return {
-            "reply": sim_res["advice"],
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "tool_called": "simulate_what_if",
             "tool_result": sim_res,
             "suggested_actions": [
-                f"What if I reduce shopping expenses by 20%?",
+                "What if I reduce shopping expenses by 20%?",
                 "How much did I spend this month?",
                 "Predict my monthly spending"
             ]
         }
 
-    # 3. Check for Category What-If Simulation ("What if I reduce shopping by 20%...")
+    # ─────────────────────────────────────────────────────────────────────────
+    # 3. Category Reduction Simulation ("reduce shopping by 20%")
+    # ─────────────────────────────────────────────────────────────────────────
     whatif_match = re.search(r'reduce\s+([a-zA-Z]+)(?:\s+spending|\s+expenses)?\s+by\s+(\d+(?:\.\d{1,2})?)%', msg_lower)
     if whatif_match:
         cat_name = whatif_match.group(1).capitalize()
         pct = float(whatif_match.group(2))
         sim_res = await tool_simulate_what_if(
-            db=db,
-            user_id=user_id,
-            category=cat_name,
-            percent_reduction=pct,
-            month_str=curr_month
+            db=db, user_id=user_id,
+            category=cat_name, percent_reduction=pct, month_str=curr_month
         )
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
+
+The user wants to simulate reducing {cat_name} expenses by {pct}%.
+Simulation calculations:
+- Historical {cat_name} spend: ₹{sim_res.get('category_spend', 0):,.2f}
+- Estimated monthly savings: ₹{sim_res.get('monthly_savings', 0):,.2f}
+- Annualized savings: ₹{sim_res.get('annualized_savings', 0):,.2f}
+Explain these exact savings numbers in an authentic, motivating way with real-world examples."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            ai_reply = sim_res["advice"]
+
         return {
-            "reply": sim_res["advice"],
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "tool_called": "simulate_what_if",
             "tool_result": sim_res,
             "suggested_actions": [
-                f"I want to save ₹5,000 in the next 3 months",
+                "I want to save ₹5,000 in the next 3 months",
                 "Can I afford a ₹1,500 purchase?",
                 "Where did most of my money go?"
             ]
         }
 
-    # 4. Check for Savings Goal Plan ("I want to save ₹5,000 in the next 3 months")
+    # ─────────────────────────────────────────────────────────────────────────
+    # 4. Savings Goal Planning ("save 5000 in 3 months")
+    # ─────────────────────────────────────────────────────────────────────────
     save_match = re.search(r'save\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d{1,2})?)\s*(?:in|over)?\s*(?:the next)?\s*(\d+)?\s*(?:months)?', msg_lower)
     if save_match and "save" in msg_lower and any(c.isdigit() for c in msg_lower):
         target = float(save_match.group(1))
         months = int(save_match.group(2)) if save_match.group(2) else 3
         plan = await tool_create_saving_plan(
-            db=db,
-            user_id=user_id,
-            target_amount=target,
-            months=months,
+            db=db, user_id=user_id,
+            target_amount=target, months=months,
             title=f"Goal: ₹{target:,.0f} in {months}m"
         )
-        reply = (
-            f"🎯 **Personalized Saving Plan Created!**\n\n"
-            f"To accumulate **₹{target:,.0f}** over **{months} months**, your target is **₹{plan['monthly_target']:,.0f}/month** (approximately ₹{plan['daily_target']:,.0f}/day).\n\n"
-            f"**Recommended Adjustments based on your spending history:**\n"
-        )
-        for s in plan["suggestions"]:
-            reply += f"• **{s['category']}**: {s['tip']}\n"
-        
-        reply += f"\nI have registered this goal in your Savings Planner!"
+        prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
+
+The user set a savings goal: Target ₹{target:,.2f} over {months} months.
+Monthly savings target: ₹{plan['monthly_target']:,.2f}/month (~₹{plan['daily_target']:,.2f}/day).
+Specific suggestions generated: {json.dumps(plan['suggestions'])}.
+
+Give an encouraging, structured, and realistic roadmap on how they can hit this goal by trimming discretionary spend."""
+        ai_reply = await call_llm_authentically(prompt, message)
+        if not ai_reply:
+            ai_reply = (
+                f"🎯 **Personalized Saving Plan Created!**\n\n"
+                f"To accumulate **₹{target:,.2f}** over **{months} months**, your target is **₹{plan['monthly_target']:,.2f}/month** (approx. ₹{plan['daily_target']:,.2f}/day).\n\n"
+                f"I have registered this goal in your Savings Planner!"
+            )
+
         return {
-            "reply": reply,
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
             "tool_called": "create_saving_plan",
             "tool_result": plan,
             "suggested_actions": [
@@ -522,170 +705,79 @@ async def process_agent_message(
             ]
         }
 
-    # 5. Check for Monthly Spending Query ("How much did I spend this month?")
-    if any(q in msg_lower for q in ["how much did i spend", "how much spent", "total spend", "spending this month", "my expenses"]):
+    # ─────────────────────────────────────────────────────────────────────────
+    # 5. Core Financial Diagnostics & Dynamic LLM Response Loop
+    # ─────────────────────────────────────────────────────────────────────────
+    # Identify diagnostic tool to run in parallel
+    tool_called = "financial_advisor"
+    tool_result = None
+
+    is_complete_data_req = any(q in msg_lower for q in [
+        "complete data", "pura data", "poora data", "sahi data", "all data", "full report",
+        "detailed data", "breakdown", "all expenses", "saare kharche", "complete breakdown"
+    ])
+
+    if any(q in msg_lower for q in ["where did most of my money go", "biggest expense", "category breakdown", "top category", "highest expense", "kaha gaya paisa", "categories", "breakdown"]):
+        tool_called = "get_category_breakdown"
+        tool_result = await tool_get_category_breakdown(db, user_id, curr_month)
+    elif any(q in msg_lower for q in ["how much did i spend", "how much spent", "total spend", "spending this month", "my expenses", "kitna kharcha", "kitna bacha", "budget status"]):
+        tool_called = "get_monthly_spending"
+        tool_result = await tool_get_monthly_spending(db, user_id, curr_month)
+    elif any(q in msg_lower for q in ["how much can i spend per day", "daily budget", "daily limit", "spend per day", "daily allowance", "roz ka kharcha"]):
+        tool_called = "calculate_remaining_budget"
+        tool_result = await tool_calculate_remaining_budget(db, user_id, curr_month)
+    elif any(q in msg_lower for q in ["predict", "forecast", "future expense", "projection", "estimated month-end", "aage ka kharcha"]):
+        tool_called = "predict_monthly_spending"
+        tool_result = await tool_predict_monthly_spending(db, user_id, curr_month)
+    elif any(q in msg_lower for q in ["unusual", "suspicious", "anomal", "outlier", "high expense", "weird"]):
+        tool_called = "detect_unusual_expenses"
+        tool_result = await tool_detect_unusual_expenses(db, user_id, curr_month)
+    elif is_complete_data_req:
+        tool_called = "get_monthly_spending"
+        tool_result = await tool_get_monthly_spending(db, user_id, curr_month)
+
+    # Prompt Groq LLM with full financial ground truth
+    completeness_instruction = ""
+    if is_complete_data_req or tool_called in ("get_category_breakdown", "get_monthly_spending"):
+        completeness_instruction = """
+CRITICAL REQUIREMENT:
+The user wants COMPLETE, EXACT, UNCOMPROMISED DATA.
+- You MUST render a clear, organized Markdown Table displaying EVERY SINGLE CATEGORY from the context with exact Spent amounts, %, Txn count, Budget limit, and Over/Under status.
+- State the exact Total Spent, Total Budget, whether they are Over/Under budget (and by exactly how much in ₹), Days Remaining, and Daily Average.
+- Mention any flagged anomalies clearly.
+- Do NOT skip or abbreviate any categories."""
+
+    prompt = f"""{SYSTEM_PERSONA}
+{fin_context}
+
+{completeness_instruction}
+
+Specific Diagnostic Data ({tool_called}):
+{json.dumps(tool_result, default=str) if tool_result else 'General financial query'}
+
+User Question: "{message}".
+Respond with complete, 100% accurate, and authentic figures matching the ground truth above."""
+
+    ai_reply = await call_llm_authentically(prompt, message, temperature=0.35, max_tokens=1000)
+
+    if not ai_reply:
+        # Graceful template fallback if network/LLM is temporarily offline
         summary = await tool_get_monthly_spending(db, user_id, curr_month)
-        reply = (
-            f"📊 **Monthly Spending Overview ({summary['month']})**\n\n"
-            f"• **Total Spent**: ₹{summary['total_spent']:,.0f}\n"
-            f"• **Monthly Budget**: ₹{summary['total_budget']:,.0f}\n"
-            f"• **Remaining**: ₹{summary['remaining_budget']:,.0f} ({summary['percentage_used']}% consumed)\n"
-            f"• **Top Category**: {summary['top_category']} (₹{summary['top_category_amount']:,.0f})\n"
-            f"• **Daily Average**: ₹{summary['daily_avg_spent']:,.0f}/day"
-        )
-        return {
-            "reply": reply,
-            "tool_called": "get_monthly_spending",
-            "tool_result": summary,
-            "suggested_actions": [
-                "Where did most of my money go?",
-                "How much can I spend per day?",
-                "Predict my monthly spending"
-            ]
-        }
-
-    # 6. Check for Category Breakdown Query ("Where did most of my money go?", "Show category breakdown")
-    if any(q in msg_lower for q in ["where did most of my money go", "biggest expense", "category breakdown", "top category", "highest expense"]):
-        bd = await tool_get_category_breakdown(db, user_id, curr_month)
-        lines = [
-            f"🏆 **Expense Breakdown by Category**",
-            f"Total across all categories: **₹{bd['total_spent']:,.0f}**",
-            f"Largest Category: **{bd['top_category']}** (₹{bd['top_category_amount']:,.0f})",
-            ""
-        ]
-        for c in bd["categories"]:
-            pct = round((c['amount'] / bd['total_spent'] * 100), 1) if bd['total_spent'] > 0 else 0
-            lines.append(f"• **{c['category']}**: ₹{c['amount']:,.0f} ({pct}% • {c['count']} txns)")
-        return {
-            "reply": "\n".join(lines),
-            "tool_called": "get_category_breakdown",
-            "tool_result": bd,
-            "suggested_actions": [
-                f"What if I reduce {bd['top_category']} by 20%?",
-                "How much can I spend per day?",
-                "Predict my monthly spending"
-            ]
-        }
-
-    # 7. Check for Daily Allowance Query ("How much can I spend per day?", "Daily limit")
-    if any(q in msg_lower for q in ["how much can i spend per day", "daily budget", "daily limit", "spend per day"]):
         b_info = await tool_calculate_remaining_budget(db, user_id, curr_month)
-        reply = (
-            f"🗓️ **Daily Budget Allowance**\n\n"
-            f"You have **₹{b_info['remaining_budget']:,.0f}** remaining in your ₹{b_info['total_budget']:,.0f} budget.\n"
-            f"With **{b_info['days_remaining']} days left** in the month, your safe daily spending allowance is **₹{b_info['daily_budget_remaining']:,.0f} per day**.\n\n"
-            f"💡 *Tip: Keeping under this daily benchmark guarantees you will finish the month within budget.*"
+        ai_reply = (
+            f"📊 **Monthly Status for {curr_month}:**\n\n"
+            f"• **Total Spent**: ₹{summary['total_spent']:,.2f}\n"
+            f"• **Monthly Budget**: ₹{summary['total_budget']:,.2f}\n"
+            f"• **Remaining**: ₹{summary['remaining_budget']:,.2f} ({summary['percentage_used']}% used)\n"
+            f"• **Safe Daily Target**: ₹{b_info['daily_budget_remaining']:,.2f}/day ({b_info['days_remaining']} days left)\n"
+            f"• **Top Category**: {summary['top_category']} (₹{summary['top_category_amount']:,.2f})\n"
         )
-        return {
-            "reply": reply,
-            "tool_called": "calculate_remaining_budget",
-            "tool_result": b_info,
-            "suggested_actions": [
-                "What happens if I spend ₹500 on shopping tomorrow?",
-                "Predict my monthly spending",
-                "Show unusual expenses"
-            ]
-        }
 
-    # 8. Check for Prediction / Forecast Query ("Predict my monthly spending", "Future expenses")
-    if any(q in msg_lower for q in ["predict", "forecast", "future expense", "projection", "estimated month-end"]):
-        fc = await tool_predict_monthly_spending(db, user_id, curr_month)
-        reply = (
-            f"🔮 **ExpensePilot AI Spending Forecast**\n\n"
-            f"{fc['summary_text']}\n\n"
-            f"• **Current Total**: ₹{fc['total_spent_so_far']:,.0f}\n"
-            f"• **Projected Month-End**: ₹{fc['projected_total']:,.0f} (range: ₹{fc['projected_range']['min']:,.0f} – ₹{fc['projected_range']['max']:,.0f})\n"
-            f"• **Weekday Spending Velocity**: ₹{fc['avg_weekday']:,.0f}/day\n"
-            f"• **Weekend Spending Velocity**: ₹{fc['avg_weekend']:,.0f}/day\n"
-            f"• **Recommended Daily Target**: ₹{fc['safe_daily_target']:,.0f}/day"
-        )
-        return {
-            "reply": reply,
-            "tool_called": "predict_monthly_spending",
-            "tool_result": fc,
-            "suggested_actions": [
-                "Can I afford a ₹1,000 purchase?",
-                "What if I reduce shopping by 20%?",
-                "Show unusual expenses"
-            ]
-        }
-
-    # 9. Check for Unusual Expenses Query
-    if any(q in msg_lower for q in ["unusual", "suspicious", "anomal", "outlier", "high expense", "weird"]):
-        anomalies = await tool_detect_unusual_expenses(db, user_id, curr_month)
-        if not anomalies:
-            reply = "✅ **All Clear!** No unusual or statistically anomalous expenses detected for this period. Spending across all categories is consistent with your historical baselines."
-        else:
-            lines = [
-                f"⚠️ **Found {len(anomalies)} Unusual Transaction{'s' if len(anomalies) > 1 else ''}:**",
-                ""
-            ]
-            for a in anomalies:
-                lines.append(f"• **₹{a['amount']:,.0f}** on *{a['description']}* ({a['category']} on {a['date']})")
-                lines.append(f"  └ *Reason*: {a['reason']}")
-            reply = "\n".join(lines)
-        return {
-            "reply": reply,
-            "tool_called": "detect_unusual_expenses",
-            "tool_result": anomalies,
-            "suggested_actions": [
-                "How much did I spend this month?",
-                "Where did most of my money go?",
-                "Predict my monthly spending"
-            ]
-        }
-
-    # 10. General Conversational / Gemini integration
-    if settings.GEMINI_API_KEY:
-        try:
-            summary = await tool_get_monthly_spending(db, user_id, curr_month)
-            system_prompt = (
-                "You are ExpensePilot AI, an autonomous financial intelligence agent. "
-                "You help users manage expenses, budgets, and savings goals. "
-                f"Context: Current month {curr_month}, spent ₹{summary['total_spent']} of budget ₹{summary['total_budget']}, "
-                f"top category {summary['top_category']} (₹{summary['top_category_amount']}). "
-                "Keep answers concise, direct, helpful, and use currency ₹. Always suggest actionable next steps."
-            )
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
-                payload = {
-                    "contents": [
-                        {"role": "user", "parts": [{"text": f"{system_prompt}\n\nUser Question: {message}"}]}
-                    ]
-                }
-                resp = await client.post(url, json=payload)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    ai_text = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return {
-                        "reply": ai_text,
-                        "tool_called": "gemini_llm",
-                        "tool_result": None,
-                        "suggested_actions": [
-                            "How much did I spend this month?",
-                            "Can I afford a ₹1,000 purchase?",
-                            "Predict my monthly spending"
-                        ]
-                    }
-        except Exception:
-            pass
-
-    # Default friendly agent assistant response
-    summary = await tool_get_monthly_spending(db, user_id, curr_month)
     return {
-        "reply": (
-            f"Hello! I'm **ExpensePilot AI**, your autonomous financial agent. 🚀\n\n"
-            f"Here is your quick financial status for **{curr_month}**:\n"
-            f"• **Spent**: ₹{summary['total_spent']:,.0f} of ₹{summary['total_budget']:,.0f} ({summary['percentage_used']}%)\n"
-            f"• **Available**: ₹{summary['remaining_budget']:,.0f} (₹{summary['daily_budget_remaining']:,.0f}/day)\n\n"
-            f"You can tell me naturally:\n"
-            f"• *\"I spent ₹350 on lunch yesterday\"*\n"
-            f"• *\"Today I spent ₹250 on food, ₹100 on petrol, and ₹500 on shopping\"*\n"
-            f"• *\"Can I afford a ₹1,500 purchase?\"*\n"
-            f"• *\"What if I reduce dining out by 20%?\"*"
-        ),
-        "tool_called": "agent_overview",
-        "tool_result": summary,
+        "reply": ai_reply,
+        "voice_text": strip_markdown_for_speech(ai_reply)[:280],
+        "tool_called": tool_called,
+        "tool_result": tool_result,
         "suggested_actions": [
             "How much did I spend this month?",
             "Where did most of my money go?",

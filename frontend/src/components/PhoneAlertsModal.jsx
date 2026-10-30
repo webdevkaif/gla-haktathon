@@ -13,7 +13,8 @@ import {
   ArrowRight,
   Sliders,
   Check,
-  Radio
+  Radio,
+  Database
 } from 'lucide-react';
 import { 
   fetchPhoneSettings, 
@@ -21,8 +22,10 @@ import {
   fetchNotificationHistory, 
   sendTestPhoneMessage, 
   dispatchPhoneSummary, 
-  dispatchPhoneRoadmap 
+  dispatchPhoneRoadmap,
+  triggerFetchNotification
 } from '../api';
+import { notifyMobileOfDataFetch } from '../utils/mobileNotifications';
 
 export default function PhoneAlertsModal({ isOpen, onClose }) {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -90,6 +93,7 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
         alert_daily_recap: settings?.alert_daily_recap ?? true,
         alert_anomaly: settings?.alert_anomaly ?? true,
         alert_budget_warning: settings?.alert_budget_warning ?? true,
+        alert_data_fetch: settings?.alert_data_fetch ?? true,
       });
       setSettings(updated);
       showFeedback(`✅ Phone paired! Confirmation message sent to ${fullNumber}`);
@@ -112,7 +116,8 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
         channel_whatsapp: newSettings.channel_whatsapp,
         alert_daily_recap: newSettings.alert_daily_recap,
         alert_anomaly: newSettings.alert_anomaly,
-        alert_budget_warning: newSettings.alert_budget_warning
+        alert_budget_warning: newSettings.alert_budget_warning,
+        alert_data_fetch: newSettings.alert_data_fetch
       });
       showFeedback("Alert preferences updated!");
     } catch (err) {
@@ -361,6 +366,28 @@ export default function PhoneAlertsModal({ isOpen, onClose }) {
                       checked={settings?.alert_anomaly ?? true} 
                       readOnly 
                       className="rounded accent-rose-500 w-4 h-4"
+                    />
+                  </div>
+
+                  {/* Data Fetch & Bank Sync Mobile Alerts */}
+                  <div 
+                    onClick={() => handleToggleChannel('alert_data_fetch')}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-cyan-500/20 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                        <Database className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">Data Fetch & Excel Import Mobile Alerts</span>
+                        <span className="text-[11px] text-slate-400">Immediate SMS/WhatsApp when new statements or transactions load</span>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={settings?.alert_data_fetch ?? true} 
+                      readOnly 
+                      className="rounded accent-cyan-500 w-4 h-4"
                     />
                   </div>
                 </div>

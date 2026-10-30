@@ -13,7 +13,9 @@ import {
   Key,
   ChevronDown,
   ChevronUp,
-  AlertCircle
+  AlertCircle,
+  Database,
+  Bell
 } from 'lucide-react';
 import { 
   fetchPhoneSettings, 
@@ -21,8 +23,10 @@ import {
   fetchNotificationHistory, 
   sendTestPhoneMessage, 
   dispatchPhoneSummary, 
-  dispatchPhoneRoadmap 
+  dispatchPhoneRoadmap,
+  triggerFetchNotification
 } from '../api';
+import { requestMobileNotificationPermission, sendNativeMobileNotification, notifyMobileOfDataFetch } from '../utils/mobileNotifications';
 
 export default function PhoneAlertsView({ onToggleChat }) {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -93,6 +97,7 @@ export default function PhoneAlertsView({ onToggleChat }) {
         alert_daily_recap: settings?.alert_daily_recap ?? true,
         alert_anomaly: settings?.alert_anomaly ?? true,
         alert_budget_warning: settings?.alert_budget_warning ?? true,
+        alert_data_fetch: settings?.alert_data_fetch ?? true,
         twilio_sid: twilioSid,
         twilio_token: twilioToken,
         twilio_from: twilioFrom
@@ -119,6 +124,7 @@ export default function PhoneAlertsView({ onToggleChat }) {
         alert_daily_recap: newSettings.alert_daily_recap,
         alert_anomaly: newSettings.alert_anomaly,
         alert_budget_warning: newSettings.alert_budget_warning,
+        alert_data_fetch: newSettings.alert_data_fetch,
         twilio_sid: twilioSid,
         twilio_token: twilioToken,
         twilio_from: twilioFrom
@@ -157,6 +163,41 @@ export default function PhoneAlertsView({ onToggleChat }) {
       showFeedback("Failed to send daily recap", "error");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleSendDataFetchAlert = async () => {
+    setIsSending(true);
+    try {
+      const res = await notifyMobileOfDataFetch({
+        source: "Excel & Bank Statement Sync",
+        count: 5,
+        totalAmount: 3450.00,
+        details: "Live test of Mobile Data Fetch Notification"
+      });
+      showFeedback(`📲 Data fetch notification delivered to mobile phone via ${activeChannel}!`);
+      await loadData();
+    } catch (err) {
+      showFeedback("Failed to trigger data fetch alert", "error");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const [pushStatus, setPushStatus] = useState(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
+  );
+
+  const handleEnablePush = async () => {
+    const res = await requestMobileNotificationPermission();
+    setPushStatus(res.permission);
+    if (res.permission === 'granted') {
+      sendNativeMobileNotification("📲 ExpensePilot Alerts Active", {
+        body: "Mobile push notifications are now enabled on your handset!"
+      });
+      showFeedback("✅ Mobile device push notifications enabled!");
+    } else {
+      showFeedback("Notification permission was not granted by browser", "error");
     }
   };
 
@@ -365,6 +406,28 @@ export default function PhoneAlertsView({ onToggleChat }) {
                   checked={settings?.alert_anomaly ?? true} 
                   readOnly 
                   className="rounded accent-rose-500 w-4 h-4 cursor-pointer"
+                />
+              </div>
+
+              {/* Data Fetch & Bank Sync Mobile Alerts */}
+              <div 
+                onClick={() => handleToggleChannel('alert_data_fetch')}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-cyan-500/20 cursor-pointer transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                    <Database className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Data Fetch & Excel Import Mobile Alerts</span>
+                    <span className="text-[11px] text-slate-400">Instant SMS/WhatsApp & Push notifications when new transactions or statements are fetched</span>
+                  </div>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={settings?.alert_data_fetch ?? true} 
+                  readOnly 
+                  className="rounded accent-cyan-500 w-4 h-4 cursor-pointer"
                 />
               </div>
             </div>

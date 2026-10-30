@@ -55,9 +55,12 @@ class AlertOut(BaseModel):
     id: Union[int, str]
     user_id: str
     type: str
-    severity: str
-    title: str
-    message: str
+    severity: str = "HIGH"
+    title: str = "Alert"
+    message: Optional[str] = ""
+    description: Optional[str] = None
+    category: Optional[str] = None
+    amount: Optional[float] = None
     action_options: List[str] = []
     is_read: bool = False
     created_at: Optional[datetime] = None
@@ -188,6 +191,10 @@ class PhoneSettingsUpdate(BaseModel):
     alert_daily_recap: Optional[bool] = True
     alert_anomaly: Optional[bool] = True
     alert_budget_warning: Optional[bool] = True
+    alert_data_fetch: Optional[bool] = True
+    twilio_sid: Optional[str] = None
+    twilio_token: Optional[str] = None
+    twilio_from: Optional[str] = None
 
 class PhoneSettingsOut(BaseModel):
     phone_number: Optional[str] = None
@@ -197,8 +204,18 @@ class PhoneSettingsOut(BaseModel):
     alert_daily_recap: bool = True
     alert_anomaly: bool = True
     alert_budget_warning: bool = True
+    alert_data_fetch: bool = True
+    twilio_sid: Optional[str] = None
+    twilio_from: Optional[str] = None
     connected_at: Optional[datetime] = None
     total_messages_sent: int = 0
+
+class DataFetchNotificationRequest(BaseModel):
+    fetch_source: Optional[str] = "Live Financial Sync"
+    items_count: Optional[int] = 1
+    total_amount: Optional[float] = 0.0
+    details: Optional[str] = None
+    channel: Optional[str] = "SMS" 
 
 class SendMessageRequest(BaseModel):
     phone_number: Optional[str] = None

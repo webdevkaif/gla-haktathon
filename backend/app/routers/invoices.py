@@ -162,6 +162,20 @@ async def create_invoice(
 
     res = await db.invoices.insert_one(doc)
     created = await db.invoices.find_one({"_id": res.inserted_id})
+
+    # Dispatch mobile phone notification of data fetch
+    try:
+        from backend.app.services.messaging import notify_data_fetch
+        await notify_data_fetch(
+            db=db,
+            user_id=user_id,
+            fetch_source=f"Invoice Receipt ({extracted_vendor})",
+            items_count=1,
+            total_amount=round(extracted_amount, 2)
+        )
+    except Exception as e_notify:
+        print(f"[Mobile Notification Notice]: {e_notify}")
+
     return serialize_doc(created)
 
 async def extract_mindee_ocr(file_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
@@ -396,6 +410,20 @@ async def upload_invoice(
 
     res = await db.invoices.insert_one(doc)
     created = await db.invoices.find_one({"_id": res.inserted_id})
+
+    # Dispatch mobile phone notification of data fetch
+    try:
+        from backend.app.services.messaging import notify_data_fetch
+        await notify_data_fetch(
+            db=db,
+            user_id=user_id,
+            fetch_source=f"Invoice Receipt ({extracted_vendor})",
+            items_count=1,
+            total_amount=round(extracted_amount, 2)
+        )
+    except Exception as e_notify:
+        print(f"[Mobile Notification Notice]: {e_notify}")
+
     return serialize_doc(created)
 
 @router.delete("/{invoice_id}")

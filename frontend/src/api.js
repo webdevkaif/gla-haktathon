@@ -1,4 +1,12 @@
-const API_BASE = "http://127.0.0.1:8000/api";
+const getApiBase = () => {
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    const host = window.location.hostname;
+    return `http://${host}:8000/api`;
+  }
+  return "http://127.0.0.1:8000/api";
+};
+
+const API_BASE = import.meta.env.VITE_API_BASE || getApiBase();
 
 export async function fetchMonthlySummary(month = "2026-10") {
   const res = await fetch(`${API_BASE}/analytics/monthly?month=${month}`);
@@ -252,3 +260,43 @@ export async function uploadExpenseCSV(formData) {
   return res.json();
 }
 
+
+export async function triggerFetchNotification(payload = {}) {
+  const res = await fetch(`${API_BASE}/notifications/notify-fetch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to trigger fetch notification");
+  return res.json();
+}
+
+export async function fetchRiskPrediction(month = "2026-10") {
+  const res = await fetch(`${API_BASE}/analytics/risk-prediction?month=${month}`);
+  if (!res.ok) throw new Error("Failed to fetch risk prediction");
+  return res.json();
+}
+
+export async function dispatchRiskAlert(month = "2026-10", channel = "SMS") {
+  const res = await fetch(`${API_BASE}/analytics/risk-prediction/dispatch-alert?month=${month}&channel=${channel}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to dispatch risk alert");
+  return res.json();
+}
+
+export async function simulateRiskIntervention(spendCutPct = 20, upcomingExpense = 0, month = "2026-10") {
+  const res = await fetch(`${API_BASE}/analytics/risk-prediction/simulate?spend_cut_percent=${spendCutPct}&upcoming_expense=${upcomingExpense}&month=${month}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to simulate risk intervention");
+  return res.json();
+}
+
+export async function activateEmergencyProtocol(month = "2026-10", channel = "SMS") {
+  const res = await fetch(`${API_BASE}/analytics/risk-prediction/emergency-protocol?month=${month}&channel=${channel}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to activate emergency protocol");
+  return res.json();
+}

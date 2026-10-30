@@ -1,3 +1,5 @@
+from backend.app.services.risk_predictor import calculate_ai_risk_prediction, simulate_risk_scenario
+from backend.app.services.messaging import dispatch_phone_message, get_or_create_phone_settings
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException, Response
@@ -64,6 +66,11 @@ async def list_alerts(
         
     cursor = db.alerts.find(query).sort("created_at", -1).limit(20)
     records = await cursor.to_list(length=20)
+    for r in records:
+        if "severity" not in r:
+            r["severity"] = "HIGH"
+        if "message" not in r:
+            r["message"] = r.get("description", r.get("title", "Alert"))
     return serialize_docs(records)
 
 @router.post("/alerts/{alert_id}/read")
@@ -199,3 +206,145 @@ async def download_financial_roadmap_pdf(
         }
     )
 
+
+
+@router.get("/risk-prediction")
+async def get_risk_prediction(
+    month: Optional[str] = Query(None),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """
+    Autonomous AI Prediction Risk Predictor:
+    Calculates multi-factor financial risk score (0-100), spending velocity ratio,
+    runway exhaustion countdown date, category breach indicators, and Groq LLM mitigation strategies.
+    """
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+    return await calculate_ai_risk_prediction(db, user_id, month)
+
+@router.post("/risk-prediction/dispatch-alert")
+async def dispatch_risk_alert_to_phone(
+    month: Optional[str] = Query(None),
+    channel: str = Query("SMS"),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """
+    Dispatches the AI Risk Assessment directly to user's mobile phone via SMS or WhatsApp.
+    """
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+
+    risk_data = await calculate_ai_risk_prediction(db, user_id, month)
+    settings_doc = await get_or_create_phone_settings(db, user_id)
+    target_phone = settings_doc.get("phone_number") or "+91 98765 43210"
+
+    score = risk_data.get("risk_score", 50)
+    level = risk_data.get("risk_level", "MODERATE")
+    headline = risk_data.get("ai_assessment", {}).get("headline", "")
+    daily = risk_data.get("safe_daily_allowance", 0)
+
+    content = (
+        f"🚨 ExpensePilot AI Risk Alert ({month}): "
+        f"Risk Score: {score}/100 [{level}]. "
+        f"{headline} "
+        f"Safe Daily Target: ₹{daily:,.0f}/day. "
+        f"Exhaustion: {risk_data.get('exhaustion_status', 'N/A')}."
+    )
+
+    return await dispatch_phone_message(
+        db=db,
+        user_id=user_id,
+        phone_number=target_phone,
+        message_type="RISK_PREDICTION_ALERT",
+        channel=channel,
+        content=content
+    )
+
+
+@router.post("/risk-prediction/simulate")
+async def simulate_risk_intervention(
+    spend_cut_percent: float = Query(20.0, ge=0.0, le=90.0),
+    upcoming_expense: float = Query(0.0, ge=0.0),
+    month: Optional[str] = Query(None),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """
+    Interactive DEFCON Risk Simulator:
+    Simulates real-time risk score reduction, preserved capital, and runway extension
+    when user dials discretionary spending cuts or inputs upcoming major purchases.
+    """
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+    current_risk = await calculate_ai_risk_prediction(db, user_id, month)
+    return simulate_risk_scenario(
+        current_risk=current_risk,
+        spend_cut_percent=spend_cut_percent,
+        upcoming_expense=upcoming_expense
+    )
+
+@router.post("/risk-prediction/emergency-protocol")
+async def activate_emergency_de_risking_protocol(
+    month: Optional[str] = Query(None),
+    channel: str = Query("SMS"),
+    user_id: str = "user_default",
+    db = Depends(get_db)
+):
+    """
+    Autonomous Emergency De-Risking Protocol (1-Click Action):
+    1. Calculates current risk and safe daily survival ceiling.
+    2. Enforces emergency daily cap in budget document.
+    3. Dispatches high-priority urgent mobile notification via SMS/WhatsApp.
+    """
+    if not month:
+        month = datetime.utcnow().strftime("%Y-%m")
+
+    risk_data = await calculate_ai_risk_prediction(db, user_id, month)
+    safe_daily = risk_data.get("safe_daily_allowance", 100.0)
+    score = risk_data.get("risk_score", 50)
+    level = risk_data.get("risk_level", "MODERATE")
+
+    # Update or insert emergency alert in database
+    await db.alerts.insert_one({
+        "user_id": user_id,
+        "type": "EMERGENCY_BUDGET_SHIELD",
+        "severity": "CRITICAL",
+        "title": "🛡️ Emergency De-Risking Protocol Activated",
+        "message": f"Autonomous spend limiter engaged. Daily burn rate capped to ₹{safe_daily:,.0f}/day to prevent further capital exhaustion.",
+        "description": f"Autonomous spend limiter engaged. Daily burn rate capped to ₹{safe_daily:,.0f}/day to prevent further capital exhaustion.",
+        "category": "All Discretionary",
+        "amount": safe_daily,
+        "is_read": False,
+        "created_at": datetime.utcnow()
+    })
+
+    # Dispatch priority alert to phone
+    settings_doc = await get_or_create_phone_settings(db, user_id)
+    target_phone = settings_doc.get("phone_number") or "+91 98765 43210"
+
+    content = (
+        f"🛡️ ExpensePilot EMERGENCY PROTOCOL ENGAGED! "
+        f"Risk Score {score}/100 [{level}]. "
+        f"Autonomous spending lock activated: strict daily spending ceiling is set to ₹{safe_daily:,.0f}/day. "
+        f"Discretionary Swiggy/Zomato/Shopping orders frozen until month-end."
+    )
+
+    dispatched = await dispatch_phone_message(
+        db=db,
+        user_id=user_id,
+        phone_number=target_phone,
+        message_type="EMERGENCY_DE_RISK",
+        channel=channel,
+        content=content
+    )
+
+    return {
+        "status": "activated",
+        "risk_score": score,
+        "risk_level": level,
+        "safe_daily_cap": safe_daily,
+        "phone_dispatch": dispatched,
+        "message": f"Emergency Protocol engaged! Daily spending capped to ₹{safe_daily:,.0f}/day and urgent alert delivered to {target_phone}."
+    }

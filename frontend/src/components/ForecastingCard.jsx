@@ -1,3 +1,4 @@
+import AIRiskPredictorHUD from './AIRiskPredictorHUD';
 import React from 'react';
 import { 
   TrendingUp, 
@@ -46,6 +47,12 @@ export default function ForecastingCard({ forecast, expenses, onExpenseUpdated }
 
   return (
     <div className="space-y-8 animate-fade-in">
+      
+      {/* Autonomous AI Prediction Risk Predictor HUD */}
+      <AIRiskPredictorHUD 
+        month={forecast.month || "2026-10"} 
+        onRiskUpdated={onExpenseUpdated} 
+      />
       
       {/* Forecast Header Banner - Frosted Indigo-Cyan Glass */}
       <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 glass-panel border border-blue-500/30 shadow-[0_20px_50px_rgba(59,130,246,0.15)]">

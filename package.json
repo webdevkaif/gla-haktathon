@@ -7,6 +7,6 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
     "frontend": "npm --prefix frontend run dev",
-    "backend": "cd backend && ./.venv/bin/python run.py"
+    "backend": "python backend/run.py"
   }
 }

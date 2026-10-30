@@ -32,7 +32,7 @@ export default function Navbar({
     { id: 'phone', label: 'Phone Alerts', icon: Smartphone },
     { id: 'invoices', label: 'Invoices & Roadmap', icon: FileText },
     { id: 'transactions', label: 'Transactions', icon: Receipt },
-    { id: 'forecast', label: 'Forecast & Anomalies', icon: TrendingUp },
+    { id: 'forecast', label: 'AI Forecast & Risk', icon: TrendingUp },
     { id: 'simulator', label: 'What-If Simulator', icon: Sliders },
     { id: 'goals', label: 'Savings Goals', icon: Target },
   ];

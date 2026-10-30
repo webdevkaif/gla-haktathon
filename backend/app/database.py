@@ -11,7 +11,7 @@ async def init_db():
     global client, db, is_fallback_mode
     if not settings.has_valid_mongo_credentials:
         print("\n" + "=" * 70)
-        print("[ExpensePilot AI] ⚠️  ATTENTION: MongoDB Atlas password placeholder detected!")
+        print("[ExpensePilot AI] [!] ATTENTION: MongoDB Atlas password placeholder detected!")
         print("Please open 'backend/.env' and replace <db_password> with your actual MongoDB password.")
         print(f"Current URL: {settings.MONGODB_URL}")
         print("=" * 70 + "\n")
@@ -19,7 +19,7 @@ async def init_db():
     connected_to_atlas = False
     if settings.has_valid_mongo_credentials:
         try:
-            print("[ExpensePilot AI] 🔄 Connecting to MongoDB Atlas...")
+            print("[ExpensePilot AI] [*] Connecting to MongoDB Atlas...")
             atlas_client = AsyncIOMotorClient(
                 settings.MONGODB_URL,
                 tlsCAFile=certifi.where(),
@@ -31,17 +31,17 @@ async def init_db():
             db = client[settings.MONGODB_DB_NAME]
             is_fallback_mode = False
             connected_to_atlas = True
-            print(f"[ExpensePilot AI] ✅ MongoDB Atlas connected successfully to database: '{settings.MONGODB_DB_NAME}'")
+            print(f"[ExpensePilot AI] [+] MongoDB Atlas connected successfully to database: '{settings.MONGODB_DB_NAME}'")
         except Exception as e:
-            print(f"[ExpensePilot AI] ⚠️ Atlas connection notice (IP whitelist or network): {e}")
+            print(f"[ExpensePilot AI] [!] Atlas connection notice (IP whitelist or network): {e}")
 
     if not connected_to_atlas:
-        print("[ExpensePilot AI] 🚀 Activating local async database engine (mongomock-motor)...")
+        print("[ExpensePilot AI] [*] Activating local async database engine (mongomock-motor)...")
         from mongomock_motor import AsyncMongoMockClient
         client = AsyncMongoMockClient()
         db = client[settings.MONGODB_DB_NAME]
         is_fallback_mode = True
-        print("[ExpensePilot AI] ✅ Local fallback database is active and ready!")
+        print("[ExpensePilot AI] [+] Local fallback database is active and ready!")
 
     try:
         await db.expenses.create_index([("user_id", 1), ("date", -1)])
