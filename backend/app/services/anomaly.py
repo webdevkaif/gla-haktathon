@@ -137,6 +137,29 @@ async def audit_and_generate_alerts(db, user_id: str, month_str: str):
             res = await db.alerts.insert_one(a)
             await db.alerts.update_one({"_id": res.inserted_id}, {"$set": {"id": str(res.inserted_id)}})
 
+            # Auto-push autonomous notification to user's paired Telegram phone bot
+            try:
+                ps = await db.phone_settings.find_one({"user_id": user_id})
+                chat_id = ps.get("telegram_chat_id") if ps else None
+                if not chat_id and ps is None:
+                    any_ps = await db.phone_settings.find_one({"telegram_chat_id": {"$exists": True, "$ne": None}})
+                    if any_ps:
+                        chat_id = any_ps.get("telegram_chat_id")
+
+                if chat_id:
+                    from backend.app.services.telegram_bot import send_telegram_message
+                    rec_action = a.get("action_options", ["Review in ExpensePilot"])[0] if a.get("action_options") else "Review in dashboard"
+                    tele_msg = (
+                        f"{a['title']}\n"
+                        f"━━━━━━━━━━━━━━━━━━━\n"
+                        f"{a['message']}\n\n"
+                        f"💡 *Action:* {rec_action}\n"
+                        f"⚡ _ExpensePilot Autonomous Alert_"
+                    )
+                    await send_telegram_message(chat_id, tele_msg)
+            except Exception as e:
+                print(f"[Telegram Autonomous Alert Notice]: {e}")
+
 
 async def detect_pyod_isolation_forest_anomalies(
     db,

@@ -60,8 +60,8 @@ function AppContent() {
     setIsChatOpen(true);
   };
 
-  // 3D Background Theme State: 'clay3d' (Cozy 3D Studio) | 'chakra' (Naruto) | 'cyber' (Anime Pilot) | 'ghibli' (Meadow) | 'none'
-  const [bgTheme, setBgTheme] = useState('clay3d');
+  // Glassmorphism Ambient Theme: 'obsidian' | 'aurora' | 'emerald' | 'minimal'
+  const [bgTheme, setBgTheme] = useState('obsidian');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -117,58 +117,40 @@ function AppContent() {
     <div className="relative min-h-screen bg-[#060a14] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white overflow-hidden">
       
       {/* =====================================================================
-          IMMERSIVE 3D BACKGROUND IMAGE & HOLOGRAPHIC AMBIENT LAYER
+          EXECUTIVE GLASSMORPHISM AMBIENT BACKDROP
           ===================================================================== */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         
-        {/* Flagship: 3D Clay Cozy Desk Workspace with Characters (User uploaded 3D scene) */}
-        {bgTheme === 'clay3d' && (
-          <div 
-            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-60 filter contrast-[1.05] brightness-95"
-            style={{ backgroundImage: `url('/3d_clay_workspace_bg.png')` }}
-          />
+        {/* Dynamic Glassmorphism Mesh Gradients */}
+        {bgTheme === 'obsidian' && (
+          <>
+            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-cyan-500/15 via-blue-600/10 to-transparent blur-[120px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-blue-600/15 via-indigo-600/10 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-emerald-500/12 blur-[130px]" />
+          </>
         )}
 
-        {/* Active 3D Background Image Layer with Parallax Breathing */}
-        {bgTheme === 'chakra' && (
-          <div 
-            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-25 filter blur-[1.5px] brightness-90"
-            style={{ backgroundImage: `url('/naruto_chakra_pilot.jpg')` }}
-          />
-        )}
-        {bgTheme === 'cyber' && (
-          <div 
-            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-25 filter blur-[1.5px] brightness-90"
-            style={{ backgroundImage: `url('/anime_agent_hud.jpg')` }}
-          />
-        )}
-        {bgTheme === 'ghibli' && (
-          <div 
-            className="absolute inset-0 bg-cover bg-center animate-3d-bg transition-opacity duration-1000 opacity-30 filter blur-[1px] brightness-95"
-            style={{ backgroundImage: `url('/ghibli_peaceful_meadow.jpg')` }}
-          />
+        {bgTheme === 'aurora' && (
+          <>
+            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-purple-600/20 via-pink-600/10 to-transparent blur-[130px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-indigo-600/20 via-violet-600/10 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-cyan-500/15 blur-[130px]" />
+          </>
         )}
 
-        {/* Ambient Dark Vignette & Mesh Depth Gradients to guarantee 100% text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060a14]/85 via-[#060a14]/65 to-[#060a14]/90 backdrop-blur-[0.5px]" />
+        {bgTheme === 'emerald' && (
+          <>
+            <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-transparent blur-[130px]" />
+            <div className="absolute -top-24 -right-28 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-teal-600/15 via-cyan-600/10 to-transparent blur-[140px]" />
+            <div className="absolute -bottom-36 right-10 w-[600px] h-[600px] rounded-full bg-amber-500/10 blur-[130px]" />
+          </>
+        )}
 
-        {/* Floating 3D Character Hologram Asset in Bottom-Right Corner */}
-        <div className="hidden xl:block absolute -bottom-8 -right-6 w-80 h-80 pointer-events-none opacity-40 animate-3d-character z-0">
-          <img 
-            src="/src/assets/hero.png" 
-            alt="3D Pilot AI" 
-            className="w-full h-full object-contain filter drop-shadow-[0_0_35px_rgba(6,182,212,0.5)]" 
-          />
-        </div>
-
-        {/* Dynamic Glowing Mesh Orbs */}
-        <div className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full bg-gradient-to-br from-cyan-500/25 to-blue-600/15 blur-[130px] animate-float-1"></div>
-        <div className="absolute -top-24 -right-28 w-[600px] h-[600px] rounded-full bg-gradient-to-bl from-purple-600/25 to-pink-600/15 blur-[150px] animate-float-2"></div>
-        <div className="absolute top-1/3 left-1/3 w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[160px] animate-float-3"></div>
-        <div className="absolute -bottom-36 right-10 w-[550px] h-[550px] rounded-full bg-emerald-500/20 blur-[140px] animate-float-1"></div>
+        {/* Ambient Dark Frosted Vignette for 100% Contrast & Crisp Readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060a14]/90 via-[#060a14]/75 to-[#060a14]/95 backdrop-blur-[1px]" />
         
-        {/* Subtle Cyber Grid Texture */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
+        {/* Subtle Frosted Grid Texture */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:24px_24px] opacity-35" />
       </div>
 
       {/* Toast Notification */}
@@ -294,62 +276,52 @@ function AppContent() {
         <span>Ask Pilot AI</span>
       </button>
 
-      {/* Floating 3D Background Controller */}
-      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-2 p-1.5 px-3 rounded-2xl bg-slate-900/90 border border-white/20 backdrop-blur-2xl shadow-2xl">
+      {/* Glassmorphism Ambient Theme Controller */}
+      <div className="fixed bottom-6 left-6 z-40 hidden sm:flex items-center gap-2 p-1.5 px-3 rounded-2xl bg-slate-900/90 border border-white/10 backdrop-blur-2xl shadow-2xl">
         <span className="text-xs font-mono font-bold text-slate-300 px-2 flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-          <span>3D Studio:</span>
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Glass Theme:</span>
         </span>
         <button
-          onClick={() => setBgTheme('clay3d')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            bgTheme === 'clay3d' 
-              ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.6)] border border-white/30' 
+          onClick={() => setBgTheme('obsidian')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'obsidian' 
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 border border-white/20' 
               : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
         >
-          🎨 Clay Studio
+          💎 Obsidian
         </button>
         <button
-          onClick={() => setBgTheme('chakra')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            bgTheme === 'chakra' 
-              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.6)] border border-white/30' 
+          onClick={() => setBgTheme('aurora')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'aurora' 
+              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-white/20' 
               : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
         >
-          🌀 Shinobi
+          🔮 Aurora
         </button>
         <button
-          onClick={() => setBgTheme('cyber')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            bgTheme === 'cyber' 
-              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.6)] border border-white/30' 
+          onClick={() => setBgTheme('emerald')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'emerald' 
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-white/20' 
               : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
         >
-          🤖 Cyber
+          🌲 Emerald
         </button>
         <button
-          onClick={() => setBgTheme('ghibli')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            bgTheme === 'ghibli' 
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.6)] border border-white/30' 
-              : 'text-slate-400 hover:text-white hover:bg-white/10'
-          }`}
-        >
-          🌿 Ghibli
-        </button>
-        <button
-          onClick={() => setBgTheme('none')}
-          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            bgTheme === 'none' 
-              ? 'bg-slate-700 text-white' 
+          onClick={() => setBgTheme('minimal')}
+          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            bgTheme === 'minimal' 
+              ? 'bg-slate-700 text-white border border-white/20' 
               : 'text-slate-500 hover:text-white hover:bg-white/5'
           }`}
-          title="Minimal Mesh Background"
+          title="Minimal Pure Glass"
         >
-          Off
+          🌑 Pure
         </button>
       </div>
 

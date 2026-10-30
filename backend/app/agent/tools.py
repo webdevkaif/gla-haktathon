@@ -73,6 +73,30 @@ async def tool_add_expense(
     except Exception:
         pass
 
+    # Instant Telegram Flash Alert if transaction was flagged unusual
+    if is_unusual:
+        try:
+            ps = await db.phone_settings.find_one({"user_id": user_id})
+            chat_id = ps.get("telegram_chat_id") if ps else None
+            if not chat_id:
+                any_ps = await db.phone_settings.find_one({"telegram_chat_id": {"$exists": True, "$ne": None}})
+                if any_ps:
+                    chat_id = any_ps.get("telegram_chat_id")
+            if chat_id:
+                from backend.app.services.telegram_bot import send_telegram_message
+                flash_text = (
+                    f"⚠️ *Financial Anomaly Flash Alert!*\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n"
+                    f"💸 *Amount:* ₹{float(amount):,.2f}\n"
+                    f"🏷️ *Category:* {cat}\n"
+                    f"📝 *Note:* {description}\n"
+                    f"🔍 *Anomaly Reason:* {reason}\n\n"
+                    f"⚡ Flagged for review by ExpensePilot AI."
+                )
+                await send_telegram_message(chat_id, flash_text)
+        except Exception as e:
+            print(f"[Telegram Anomaly Flash Notice]: {e}")
+
     return {
         "id": doc_id,
         "amount": doc["amount"],

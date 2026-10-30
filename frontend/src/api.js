@@ -301,6 +301,43 @@ export async function sendTestPhoneMessage(payload = {}) {
   return res.json();
 }
 
+export async function directSendMessage(payload) {
+  const res = await fetch(`${API_BASE}/notifications/direct-send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to send message to recipient");
+  }
+  return res.json();
+}
+
+export async function fetchPhoneContacts() {
+  const res = await fetch(`${API_BASE}/notifications/contacts`);
+  if (!res.ok) throw new Error("Failed to load contacts");
+  return res.json();
+}
+
+export async function addPhoneContact(contact) {
+  const res = await fetch(`${API_BASE}/notifications/contacts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(contact),
+  });
+  if (!res.ok) throw new Error("Failed to add contact");
+  return res.json();
+}
+
+export async function deletePhoneContact(contactId) {
+  const res = await fetch(`${API_BASE}/notifications/contacts/${contactId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete contact");
+  return res.json();
+}
+
 export async function dispatchPhoneSummary(channel = "SMS") {
   const res = await fetch(`${API_BASE}/notifications/dispatch-summary?channel=${channel}`, {
     method: "POST",
@@ -465,6 +502,36 @@ export async function fetchAnomalyDetections(month = "2026-10", userId = "user_d
 
   const res = await fetch(`${API_BASE}/anomalies/detect?${query.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch financial anomaly detections");
+  return res.json();
+}
+
+export async function fetchTelegramInfo() {
+  const res = await fetch(`${API_BASE}/notifications/telegram/info`);
+  if (!res.ok) throw new Error("Failed to fetch Telegram bot info");
+  return res.json();
+}
+
+export async function sendTelegramTest(userId = "user_default", customText = null) {
+  const query = new URLSearchParams();
+  if (userId) query.append("user_id", userId);
+  if (customText) query.append("custom_text", customText);
+
+  const res = await fetch(`${API_BASE}/notifications/telegram/send-test?${query.toString()}`, {
+    method: "POST"
+  });
+  if (!res.ok) throw new Error("Failed to dispatch Telegram test message");
+  return res.json();
+}
+
+export async function dispatchAnomaliesToTelegram(userId = "user_default", month = null) {
+  const query = new URLSearchParams();
+  if (userId) query.append("user_id", userId);
+  if (month) query.append("month", month);
+
+  const res = await fetch(`${API_BASE}/anomalies/dispatch-telegram?${query.toString()}`, {
+    method: "POST"
+  });
+  if (!res.ok) throw new Error("Failed to dispatch anomalies to Telegram");
   return res.json();
 }
 

@@ -458,6 +458,8 @@ class PhoneSettingsUpdate(BaseModel):
     phone_number: str
     channel_sms: Optional[bool] = True
     channel_whatsapp: Optional[bool] = True
+    channel_telegram: Optional[bool] = True
+    telegram_chat_id: Optional[str] = None
     alert_daily_recap: Optional[bool] = True
     alert_anomaly: Optional[bool] = True
     alert_budget_warning: Optional[bool] = True
@@ -467,6 +469,8 @@ class PhoneSettingsOut(BaseModel):
     is_connected: bool = False
     channel_sms: bool = True
     channel_whatsapp: bool = True
+    channel_telegram: bool = True
+    telegram_chat_id: Optional[str] = None
     alert_daily_recap: bool = True
     alert_anomaly: bool = True
     alert_budget_warning: bool = True
@@ -475,19 +479,45 @@ class PhoneSettingsOut(BaseModel):
 
 class SendMessageRequest(BaseModel):
     phone_number: Optional[str] = None
+    recipient_name: Optional[str] = None
     message_type: Optional[str] = "TEST_ALERT"
     channel: Optional[str] = "SMS"
     custom_text: Optional[str] = None
+
+class DirectMessageRequest(BaseModel):
+    recipient_name: Optional[str] = "Recipient"
+    phone_number: str
+    channel: Optional[str] = "SMS"
+    message_type: Optional[str] = "DIRECT_MESSAGE"
+    content: str
+
+class ContactCreate(BaseModel):
+    name: str
+    phone_number: str
+    role: Optional[str] = "Colleague"
+
+class ContactOut(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    phone_number: str
+    role: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 class DispatchedMessageOut(BaseModel):
     id: str
     user_id: str
     phone_number: str
+    recipient_name: Optional[str] = None
     channel: str
     message_type: str
     content: str
     status: str
     dispatch_id: str
+    whatsapp_url: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:

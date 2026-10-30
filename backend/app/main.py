@@ -11,6 +11,7 @@ from backend.app.routers import (
 )
 from backend.app.services.seed_data import seed_enterprise_data, seed_demo_data
 from backend.app.services.workflow import check_and_send_due_reminders
+from backend.app.services.telegram_bot import telegram_polling_worker
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +39,8 @@ async def lifespan(app: FastAPI):
 
     # Start periodic reminder background worker (runs every 60s)
     reminder_task = None
+    telegram_task = None
+
     async def periodic_reminder_worker():
         while True:
             try:
@@ -52,12 +55,23 @@ async def lifespan(app: FastAPI):
 
     reminder_task = asyncio.create_task(periodic_reminder_worker())
 
+    # Start Telegram Bot Polling Worker if token is configured
+    if settings.TELEGRAM_BOT_TOKEN:
+        telegram_task = asyncio.create_task(telegram_polling_worker(get_database))
+
     yield
 
     if reminder_task:
         reminder_task.cancel()
         try:
             await reminder_task
+        except asyncio.CancelledError:
+            pass
+
+    if telegram_task:
+        telegram_task.cancel()
+        try:
+            await telegram_task
         except asyncio.CancelledError:
             pass
 

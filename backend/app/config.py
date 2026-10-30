@@ -35,6 +35,11 @@ class Settings(BaseModel):
     TWILIO_PHONE_NUMBER: str = os.getenv("TWILIO_PHONE_NUMBER", "")
     WHATSAPP_API_TOKEN: str = os.getenv("WHATSAPP_API_TOKEN", "")
     DEFAULT_NOTIFICATION_PHONE: str = os.getenv("DEFAULT_NOTIFICATION_PHONE", "+91 98765 43210")
+    MSG91_AUTH_KEY: str = os.getenv("MSG91_AUTH_KEY", "")
+
+    # Telegram Bot Settings
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_BOT_USERNAME: str = os.getenv("TELEGRAM_BOT_USERNAME", "Isehsgiwjsbot")
 
     @property
     def has_valid_mongo_credentials(self) -> bool:

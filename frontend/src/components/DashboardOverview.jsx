@@ -32,10 +32,7 @@ import {
 } from 'recharts';
 import { formatCurrency, formatPercent, getCategoryColor } from '../utils/formatters';
 import { fetchAnomalyDetections } from '../api';
-import AnimeAgentCinemaHUD from './AnimeAgentCinemaHUD';
-import NarutoShinobiJutsuHUD from './NarutoShinobiJutsuHUD';
-import GhibliMeadowHUD from './GhibliMeadowHUD';
-import GhibliButton from './GhibliButton';
+import GlassmorphismExecutiveHUD from './GlassmorphismExecutiveHUD';
 
 export default function DashboardOverview({ 
   summary, 
@@ -46,7 +43,6 @@ export default function DashboardOverview({
   onToggleChat,
   onTogglePhoneAlerts 
 }) {
-  const [hudTheme, setHudTheme] = useState('GHIBLI'); // 'GHIBLI', 'NARUTO', or 'CYBER'
   const [anomalyReport, setAnomalyReport] = useState(null);
   const [isAnomalyLoading, setIsAnomalyLoading] = useState(true);
 
@@ -98,89 +94,17 @@ export default function DashboardOverview({
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* HUD Theme Switcher Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase">
-            Visual Anime & 3D Engine
-          </span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-            Interactive
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 p-2 px-3 rounded-2xl bg-slate-900/90 border border-white/20 backdrop-blur-xl shadow-xl">
-          {/* Studio Ghibli Theme Button */}
-          <button
-            onClick={() => setHudTheme('GHIBLI')}
-            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              hudTheme === 'GHIBLI'
-                ? 'bg-gradient-to-r from-emerald-500 via-green-600 to-teal-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] border border-white/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <span>🌿</span>
-            <span>Studio Ghibli Meadow</span>
-          </button>
-
-          {/* 3D Naruto Shinobi Button */}
-          <button
-            onClick={() => setHudTheme('NARUTO')}
-            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              hudTheme === 'NARUTO'
-                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-white/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <span>🌀</span>
-            <span>3D Naruto Shinobi</span>
-          </button>
-
-          {/* Cyber-Anime Pilot Button */}
-          <button
-            onClick={() => setHudTheme('CYBER')}
-            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              hudTheme === 'CYBER'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_20px_rgba(6,182,212,0.5)] border border-white/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <span>🤖</span>
-            <span>Cyber-Anime Pilot</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Conditional Active AI Pilot HUD */}
-      {hudTheme === 'GHIBLI' ? (
-        <GhibliMeadowHUD
-          summary={summary}
-          budget={budget}
-          forecast={forecast}
-          onToggleChat={onToggleChat}
-          onTogglePhoneAlerts={onTogglePhoneAlerts}
-          onNavigateTab={onNavigateTab}
-        />
-      ) : hudTheme === 'NARUTO' ? (
-        <NarutoShinobiJutsuHUD
-          summary={summary}
-          budget={budget}
-          forecast={forecast}
-          onToggleChat={onToggleChat}
-          onTogglePhoneAlerts={onTogglePhoneAlerts}
-          onNavigateTab={onNavigateTab}
-        />
-      ) : (
-        <AnimeAgentCinemaHUD
-          summary={summary}
-          budget={budget}
-          forecast={forecast}
-          onToggleChat={onToggleChat}
-          onTogglePhoneAlerts={onTogglePhoneAlerts}
-          onNavigateTab={onNavigateTab}
-        />
-      )}
+      {/* Executive Glassmorphism Intelligence Cockpit */}
+      <GlassmorphismExecutiveHUD
+        summary={summary}
+        budget={budget}
+        forecast={forecast}
+        anomalyReport={anomalyReport}
+        onToggleChat={onToggleChat}
+        onTogglePhoneAlerts={onTogglePhoneAlerts}
+        onNavigateTab={onNavigateTab}
+        onOpenAddExpense={onOpenAddExpense}
+      />
 
       {/* Autonomous Agent Status Banner - Ultra Frosted Glass */}
       <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 glass-panel border border-emerald-500/30 shadow-[0_20px_50px_rgba(16,185,129,0.15)]">
@@ -212,26 +136,21 @@ export default function DashboardOverview({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <GhibliButton
+            <button
               onClick={() => onNavigateTab('simulator')}
-              variant="parchment"
-              icon={Sliders}
-              showSprite={false}
-              className="text-xs py-2 px-3"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/[0.05] hover:bg-white/10 text-slate-200 border border-white/10 hover:border-cyan-400/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
             >
-              Simulate What-If
-            </GhibliButton>
+              <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Simulate What-If</span>
+            </button>
             
-            <GhibliButton
+            <button
               onClick={onToggleChat}
-              variant="forest"
-              icon={Bot}
-              showSprite={true}
-              spritePosition="right"
-              className="text-xs py-2 px-3.5"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
             >
-              Ask Agent
-            </GhibliButton>
+              <Bot className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ask Agent</span>
+            </button>
           </div>
         </div>
       </div>

@@ -18,7 +18,6 @@ import {
   LogOut 
 } from 'lucide-react';
 
-import GhibliButton from './GhibliButton';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ 
@@ -192,31 +191,25 @@ export default function Navbar({
               )}
             </button>
 
-            {/* Add Expense Button (Studio Ghibli Animated Button) */}
-            <GhibliButton
+            {/* Add Expense Button - Glassmorphism */}
+            <button
               onClick={onOpenAddExpense}
-              variant="forest"
-              icon={PlusCircle}
-              showSprite={true}
-              spritePosition="right"
-              className="py-2.5 px-4 text-xs font-bold rounded-2xl shadow-md"
-              title="Add New Expense (Studio Ghibli Animated)"
+              className="py-2 px-3.5 text-xs font-bold rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/25 border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Add New Expense"
             >
+              <PlusCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Add Expense</span>
-            </GhibliButton>
+            </button>
 
-            {/* AI Agent Chat Toggle (Studio Ghibli Animated Button) */}
-            <GhibliButton
+            {/* AI Agent Chat Toggle - Glassmorphism */}
+            <button
               onClick={onToggleChat}
-              variant="sky"
-              icon={Bot}
-              showSprite={true}
-              spritePosition="right"
-              className="py-2.5 px-4 text-xs font-bold rounded-2xl shadow-md"
+              className="py-2 px-3.5 text-xs font-bold rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/25 border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
               title="Chat with Pilot AI Agent"
             >
+              <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">Ask Agent</span>
-            </GhibliButton>
+            </button>
           </div>
         </div>
 

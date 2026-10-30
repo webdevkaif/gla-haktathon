@@ -6,10 +6,14 @@ console.log('\x1b[36m%s\x1b[0m', '==============================================
 console.log('\x1b[36m%s\x1b[0m', '🚀 Starting ExpensePilot AI Full-Stack Platform...');
 console.log('\x1b[36m%s\x1b[0m', '=============================================================');
 
-// Automatically free orphaned processes from previous runs on ports 8000 and 5173
+// Automatically free orphaned processes from previous runs on ports 8000, 5173, 5174, 5175
 try {
   if (process.platform !== 'win32') {
-    execSync('lsof -ti :8000,:5173 2>/dev/null | xargs kill -9 2>/dev/null || true', { stdio: 'ignore' });
+    const killed = execSync('lsof -ti :8000 -ti :5173 -ti :5174 -ti :5175 2>/dev/null || true').toString().trim();
+    if (killed) {
+      execSync('lsof -ti :8000 -ti :5173 -ti :5174 -ti :5175 2>/dev/null | xargs kill -9 2>/dev/null || true', { stdio: 'ignore' });
+      execSync('sleep 0.6', { stdio: 'ignore' });
+    }
   }
 } catch (_) {}
 
@@ -56,9 +60,14 @@ const frontendProcess = spawn(npmCmd, ['run', 'dev', '--', '--host', '127.0.0.1'
 // Clean shutdown on exit
 function shutdown() {
   console.log('\n\x1b[33m%s\x1b[0m', '🛑 Shutting down ExpensePilot AI services...');
-  backendProcess.kill('SIGINT');
-  frontendProcess.kill('SIGINT');
-  setTimeout(() => process.exit(0), 1000);
+  try {
+    backendProcess.kill('SIGTERM');
+    frontendProcess.kill('SIGTERM');
+    if (process.platform !== 'win32') {
+      execSync('lsof -ti :8000 -ti :5173 -ti :5174 -ti :5175 2>/dev/null | xargs kill -9 2>/dev/null || true', { stdio: 'ignore' });
+    }
+  } catch (_) {}
+  setTimeout(() => process.exit(0), 500);
 }
 
 process.on('SIGINT', shutdown);

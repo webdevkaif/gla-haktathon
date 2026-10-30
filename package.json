@@ -9,5 +9,8 @@
     "backend": "python3 run.py",
     "frontend": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9"
   }
 }
