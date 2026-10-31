@@ -1099,22 +1099,21 @@ RECENT RECORDED TRANSACTIONS (Latest 15):
 """
     return ctx
 
-SYSTEM_PERSONA = """You are ExpensePilot AI, a genuine, warm, and highly authentic personal financial mentor and AI copilot.
+SYSTEM_PERSONA = """You are ExpensePilot AI, a brilliant, helpful, and highly attentive personal financial mentor and AI copilot.
 
-MANDATORY RULES FOR DATA ACCURACY & COMPLETENESS:
-1. 100% COMPLETE & EXACT DATA:
-   - When the user asks about their spending, budget, category breakdown, or transactions (e.g. "pura data sahi do", "actual me complete data shi de", "show breakdown", "all expenses", "kitna kharcha hua"), YOU MUST PROVIDE THE COMPLETE, EXACT NUMBERS from the LIVE DATABASE GROUND TRUTH above.
-   - Do NOT omit any categories. Present ALL categories with their exact ₹ amounts, percentages, and transaction counts.
-   - Present category breakdowns and summaries in clear, scannable Markdown tables or well-structured bullet lists with exact amounts in ₹.
-   - Accurately state whether the user is over budget (and by how much in ₹) or under budget.
-2. EMPATHETIC & AUTHENTIC MENTORSHIP:
-   - Speak with warmth, honesty, and genuine care. Never be robotic, dismissive, or vague.
-   - Understand real-world Indian budgeting: UPI payments, Swiggy/Zomato, Blinkit, groceries, metro, fuel, EMIs.
-3. LANGUAGE MATCHING:
-   - If the user writes or speaks in Hindi or Hinglish (e.g. 'kitna bacha hai', 'kya karu', 'bhai pura data sahi de', 'kaha gaya paisa'), reply in natural, fluent, friendly Hinglish.
-   - If the user writes in English, reply in clean, engaging, articulate English.
-4. STRICT TRUTH:
-   - Never invent or hallucinate figures or dates. All numbers must strictly align with the ground truth data above.
+CORE PRINCIPLES:
+1. ANSWER EXACTLY WHAT IS ASKED:
+   - Always directly and precisely answer the user's specific question or prompt first.
+   - Never dump unsolicited budget reports, statistics, or repetitive tables unless the user explicitly asks about their spending, budget, or account breakdown.
+   - If the user asks general questions (e.g. finance concepts, savings strategies, general chat, advice, math), provide a direct, concise, and helpful answer.
+
+2. PRECISION WITH FINANCIAL GROUND TRUTH:
+   - When the user asks about their own account's expenses, transactions, budgets, or categories, use the ground truth data provided with 100% mathematical precision.
+   - Always quote exact amounts in Rupees (₹) and never hallucinate or invent numbers.
+
+3. TONE & LANGUAGE MATCHING:
+   - Warm, respectful, intelligent, and conversational.
+   - Automatically match the user's language: If the user speaks Hindi/Hinglish (e.g. "bhai", "kya karu", "kitna kharcha hua", "kuch tips batao"), reply in natural, fluent Hinglish. If in English, reply in clean, articulate English.
 """
 
 def extract_natural_language_expenses(message: str) -> List[Dict[str, Any]]:
@@ -1193,6 +1192,37 @@ async def process_agent_message(
     msg_lower = message.lower().strip()
     curr_month = datetime.utcnow().strftime("%Y-%m")
     fin_context = await build_financial_context(db, user_id, curr_month)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # 00. Natural Greetings & Conversational Check-ins
+    # ─────────────────────────────────────────────────────────────────────────
+    words = msg_lower.split()
+    is_simple_greeting = msg_lower in [
+        "hi", "hello", "hey", "hii", "hiii", "namaste", "good morning", 
+        "good evening", "good afternoon", "hola", "yo", "wassup", "sup"
+    ] or (len(words) <= 3 and any(msg_lower.startswith(w) for w in ["hi ", "hello ", "hey ", "namaste "]))
+
+    if is_simple_greeting and not any(w in msg_lower for w in ["spend", "budget", "expense", "kharch", "money", "rupee", "₹", "rs", "invoice", "claim"]):
+        greeting_prompt = f"""{SYSTEM_PERSONA}
+The user greeted you with: "{message}".
+User Name: {user_name or 'Mohammad Kaif'}.
+Respond with a warm, natural, and friendly greeting. Acknowledge them directly by name, ask what they would like help with today regarding their spending, budgets, or invoices, and keep it pleasant and concise (2-3 sentences max)."""
+        ai_reply = await call_llm_authentically(greeting_prompt, message)
+        if not ai_reply:
+            name_display = f" {user_name}" if user_name else ""
+            ai_reply = f"Hello{name_display}! 👋 How can I help you today? You can ask me about your budget, record expenses, review uploaded invoices, or simulate future purchases."
+        return {
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
+            "tool_called": "agent_greeting",
+            "tool_result": {"status": "ready"},
+            "suggested_actions": [
+                "What is my budget for this month?",
+                "Where did most of my money go?",
+                "Can I afford a ₹1,500 purchase?",
+                "Talk about my uploaded invoices"
+            ]
+        }
 
     # ─────────────────────────────────────────────────────────────────────────
     # 0a. Check for Self-Introduction / Identity
@@ -1703,42 +1733,55 @@ Give an encouraging, structured, and realistic roadmap on how they can hit this 
         tool_called = "get_monthly_spending"
         tool_result = await tool_get_monthly_spending(db, user_id, curr_month)
 
-    # Prompt Groq LLM with full financial ground truth
+    # Prompt LLM with contextual ground truth
     completeness_instruction = ""
     if is_complete_data_req or tool_called in ("get_category_breakdown", "get_monthly_spending"):
         completeness_instruction = """
-CRITICAL REQUIREMENT:
-The user wants COMPLETE, EXACT, UNCOMPROMISED DATA.
-- You MUST render a clear, organized Markdown Table displaying EVERY SINGLE CATEGORY from the context with exact Spent amounts, %, Txn count, Budget limit, and Over/Under status.
+CRITICAL REQUIREMENT FOR DATA BREAKDOWN:
+The user wants COMPLETE, EXACT DATA.
+- Render a clear, organized Markdown Table displaying EVERY SINGLE CATEGORY from the context with exact Spent amounts, %, Txn count, Budget limit, and Over/Under status.
 - State the exact Total Spent, Total Budget, whether they are Over/Under budget (and by exactly how much in ₹), Days Remaining, and Daily Average.
-- Mention any flagged anomalies clearly.
 - Do NOT skip or abbreviate any categories."""
 
+    # Decide if query is specifically asking about user's financial account numbers vs general question
+    is_user_finance_data_query = any(w in msg_lower for w in [
+        "budget", "spend", "spent", "kharch", "expense", "transaction", "balance",
+        "category", "breakdown", "overrun", "saving", "allowance", "runway", "afford",
+        "invoice", "claim", "money", "paisa", "rupee", "₹", "rs", "cost", "how much", "status"
+    ])
+
+    context_payload = fin_context if is_user_finance_data_query else f"Active User: {user_name or 'Mohammad Kaif'}"
+
     prompt = f"""{SYSTEM_PERSONA}
-{fin_context}
+{context_payload}
 
 {completeness_instruction}
 
-Specific Diagnostic Data ({tool_called}):
-{json.dumps(tool_result, default=str) if tool_result else 'General financial query'}
+User Question: "{message}"
 
-User Question: "{message}".
-Respond with complete, 100% accurate, and authentic figures matching the ground truth above."""
+MANDATORY INSTRUCTION:
+Directly answer the user's EXACT question above.
+- If the question is about their personal account budget or expenses, refer to the exact financial context figures above.
+- If the question is advice, conceptual, or general inquiry, answer it directly, clearly, and insightfully.
+- Do NOT provide an unsolicited monthly budget status report unless they explicitly asked about their budget or spending.
+- Match the user's language (natural Hinglish if they asked in Hindi/Hinglish, otherwise English)."""
 
     ai_reply = await call_llm_authentically(prompt, message, temperature=0.35, max_tokens=1000)
 
     if not ai_reply:
-        # Graceful template fallback if network/LLM is temporarily offline
-        summary = await tool_get_monthly_spending(db, user_id, curr_month)
-        b_info = await tool_calculate_remaining_budget(db, user_id, curr_month)
-        ai_reply = (
-            f"📊 **Monthly Status for {curr_month}:**\n\n"
-            f"• **Total Spent**: ₹{summary['total_spent']:,.2f}\n"
-            f"• **Monthly Budget**: ₹{summary['total_budget']:,.2f}\n"
-            f"• **Remaining**: ₹{summary['remaining_budget']:,.2f} ({summary['percentage_used']}% used)\n"
-            f"• **Safe Daily Target**: ₹{b_info['daily_budget_remaining']:,.2f}/day ({b_info['days_remaining']} days left)\n"
-            f"• **Top Category**: {summary['top_category']} (₹{summary['top_category_amount']:,.2f})\n"
-        )
+        if is_user_finance_data_query:
+            summary = await tool_get_monthly_spending(db, user_id, curr_month)
+            b_info = await tool_calculate_remaining_budget(db, user_id, curr_month)
+            ai_reply = (
+                f"📊 **Monthly Status for {curr_month}:**\n\n"
+                f"• **Total Spent**: ₹{summary['total_spent']:,.2f}\n"
+                f"• **Monthly Budget**: ₹{summary['total_budget']:,.2f}\n"
+                f"• **Remaining**: ₹{summary['remaining_budget']:,.2f} ({summary['percentage_used']}% used)\n"
+                f"• **Safe Daily Target**: ₹{b_info['daily_budget_remaining']:,.2f}/day ({b_info['days_remaining']} days left)\n"
+                f"• **Top Category**: {summary['top_category']} (₹{summary['top_category_amount']:,.2f})\n"
+            )
+        else:
+            ai_reply = f"I'm here to help! Could you please tell me a bit more about what you would like to know or calculate?"
 
     res = {
         "reply": ai_reply,
