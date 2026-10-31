@@ -18,3 +18,4 @@ expensepilot.db
 *.log
 .env
 backend/.env
+
