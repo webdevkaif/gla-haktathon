@@ -1225,6 +1225,70 @@ Respond with a warm, natural, and friendly greeting. Acknowledge them directly b
         }
 
     # ─────────────────────────────────────────────────────────────────────────
+    # 0. Attached File / Spreadsheet Query Processing
+    # ─────────────────────────────────────────────────────────────────────────
+    if file_context and (file_context.get("row_count", 0) > 0 or file_context.get("summary") or file_context.get("headers")):
+        file_analysis = analyze_uploaded_file_context(
+            file_context=file_context,
+            query=message,
+            user={"id": user_id, "name": user_name or "Mohammad Kaif", "role": "employee"},
+            language=language
+        )
+
+        fname = file_context.get("filename", "uploaded_file.csv")
+        r_cnt = file_context.get("row_count", 0)
+        c_cnt = file_context.get("column_count", 0)
+        headers = file_context.get("headers", [])
+        summary = file_context.get("summary", {})
+        md_table = file_context.get("markdown_preview", "")
+        sample_rows = file_context.get("sample_rows", [])
+
+        file_prompt = f"""{SYSTEM_PERSONA}
+
+ATTACHED SPREADSHEET / FILE GROUND TRUTH:
+- File Name: {fname} ({file_context.get('file_type', 'SPREADSHEET')})
+- Dimensions: {r_cnt} rows, {c_cnt} columns
+- Column Headers: {', '.join([str(h) for h in headers])}
+- Total Sum: ₹{summary.get('total_sum', 'N/A')}
+- Average Line Item: ₹{summary.get('average_amount', 'N/A')}
+- Max Amount: ₹{summary.get('max_amount', 'N/A')}
+- Min Amount: ₹{summary.get('min_amount', 'N/A')}
+- Flagged High Expenses (> ₹10k): {len(summary.get('flagged_high_expenses', []))} items: {json.dumps(summary.get('flagged_high_expenses', []))}
+- Duplicate Line Items: {len(summary.get('duplicate_rows', []))} items: {json.dumps(summary.get('duplicate_rows', []))}
+
+DATA PREVIEW / EXTRACTED ROWS:
+{md_table if md_table else json.dumps(sample_rows[:15], default=str)}
+
+User Question: "{message}".
+
+MANDATORY INSTRUCTION:
+The user is querying their uploaded file ("{fname}").
+Directly answer their question based strictly on the extracted data, rows, and summary metrics above.
+Quote exact figures, row numbers, or categories from the file. Match the user's language (natural Hinglish if they spoke in Hindi/Hinglish, otherwise English)."""
+
+        ai_reply = await call_llm_authentically(file_prompt, message, temperature=0.25, max_tokens=1000)
+        if not ai_reply:
+            ai_reply = file_analysis["reply"]
+
+        return {
+            "reply": ai_reply,
+            "voice_text": strip_markdown_for_speech(ai_reply)[:280],
+            "tool_called": "spreadsheet_data_extractor",
+            "tool_result": {
+                "filename": fname,
+                "row_count": r_cnt,
+                "summary": summary
+            },
+            "citations": file_analysis.get("citations", []),
+            "suggested_actions": [
+                f"What is the total expenditure in {fname}?",
+                "Are there any policy violations or high expenses?",
+                "Did you find any duplicate rows or anomalies?",
+                "Summarize top expense categories"
+            ]
+        }
+
+    # ─────────────────────────────────────────────────────────────────────────
     # 0a. Check for Self-Introduction / Identity
     # ─────────────────────────────────────────────────────────────────────────
     if any(q in msg_lower for q in [
