@@ -2,11 +2,16 @@ const getApiBase = () => {
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  if (typeof window !== "undefined" && window.location?.hostname) {
-    const host = window.location.hostname;
-    return `http://${host}:8000/api`;
+  if (typeof window !== "undefined") {
+    const { hostname, port } = window.location;
+    // Local development when running frontend dev server on port 5173
+    if ((hostname === "localhost" || hostname === "127.0.0.1") && port === "5173") {
+      return "http://localhost:8000/api";
+    }
+    // Production (Render, Railway, or unified Docker container)
+    return "/api";
   }
-  return "http://127.0.0.1:8000/api";
+  return "/api";
 };
 
 const API_BASE = getApiBase();
