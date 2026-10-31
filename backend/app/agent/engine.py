@@ -965,7 +965,36 @@ async def call_llm_authentically(
     temperature: float = 0.35,
     max_tokens: int = 1000
 ) -> Optional[str]:
-    """Calls Groq LLM (with secondary fallback) to produce authentic, empathetic, grounded text."""
+    """Calls Gemini or Groq LLM with dual-fallback architecture to produce authentic, grounded text."""
+    
+    # 1. Try Google Gemini API if configured
+    if settings.GEMINI_API_KEY:
+        chosen_gemini_model = getattr(settings, "GEMINI_MODEL", None) or "gemini-3.5-flash-lite"
+        gemini_models_to_try = [chosen_gemini_model, "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"]
+        seen_models = set()
+        for g_model in gemini_models_to_try:
+            if g_model in seen_models:
+                continue
+            seen_models.add(g_model)
+            try:
+                async with httpx.AsyncClient(timeout=20.0) as client:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{g_model}:generateContent?key={settings.GEMINI_API_KEY}"
+                    payload = {
+                        "contents": [{"role": "user", "parts": [{"text": f"{system_instruction}\n\nUser Question: {user_prompt}"}]}]
+                    }
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                        if text and text.strip():
+                            return text.strip()
+                    elif resp.status_code == 404:
+                        continue
+                    else:
+                        print(f"[ExpensePilot AI] Gemini ({g_model}) status {resp.status_code}: {resp.text[:150]}")
+            except Exception as e:
+                print(f"[ExpensePilot AI] Gemini connection notice: {e}")
+
+    # 2. Try Groq LLM if configured (or as fallback)
     if settings.GROQ_API_KEY:
         chosen_model = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
         headers = {
@@ -998,22 +1027,7 @@ async def call_llm_authentically(
                         if content and content.strip():
                             return content.strip()
         except Exception as e:
-            print(f"[ExpensePilot AI] LLM error: {e}")
-
-    if settings.GEMINI_API_KEY:
-        try:
-            async with httpx.AsyncClient(timeout=14.0) as client:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
-                payload = {
-                    "contents": [{"role": "user", "parts": [{"text": f"{system_instruction}\n\nUser Question: {user_prompt}"}]}]
-                }
-                resp = await client.post(url, json=payload)
-                if resp.status_code == 200:
-                    text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-                    if text and text.strip():
-                        return text.strip()
-        except Exception:
-            pass
+            print(f"[ExpensePilot AI] Groq LLM notice: {e}")
 
     return None
 
