@@ -24,7 +24,8 @@ from backend.app.agent.tools import (
     tool_get_monthly_spending,
     tool_get_category_breakdown,
     tool_calculate_remaining_budget,
-    tool_simulate_what_if
+    tool_simulate_what_if,
+    auto_categorize
 )
 from backend.app.services.audit import write_audit
 
@@ -1115,6 +1116,68 @@ MANDATORY RULES FOR DATA ACCURACY & COMPLETENESS:
 4. STRICT TRUTH:
    - Never invent or hallucinate figures or dates. All numbers must strictly align with the ground truth data above.
 """
+
+def extract_natural_language_expenses(message: str) -> List[Dict[str, Any]]:
+    """
+    Extracts structured expense items from natural language text
+    (e.g., 'Spent ₹450 on lunch today', 'paid 1200 for groceries').
+    """
+    msg = message.strip()
+    msg_l = msg.lower()
+
+    if any(q in msg_l for q in [
+        "what is", "how much", "tell me", "show me", "can i afford",
+        "who are you", "predict", "forecast", "introduce", "suggest", "simulate"
+    ]):
+        return []
+
+    pattern = re.compile(r'(?:(?:₹|rs\.?|inr)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:₹|rs\.?|inr|rupees?))', re.IGNORECASE)
+    matches = list(pattern.finditer(msg))
+
+    results = []
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    yesterday_str = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    date_str = yesterday_str if "yesterday" in msg_l or "kal" in msg_l else today_str
+
+    if matches:
+        for m in matches:
+            amt_str = m.group(1) or m.group(2)
+            try:
+                amt = float(amt_str)
+                if amt <= 0:
+                    continue
+                desc = re.sub(r'(?:spent|paid|bought|kharcha|record|add|on|for|yesterday|today|₹|rs\.?|inr|rupees?)', '', msg, flags=re.IGNORECASE)
+                desc = re.sub(r'\b' + re.escape(amt_str) + r'\b', '', desc)
+                desc = re.sub(r'\s+', ' ', desc).strip(' -:,')
+                if not desc:
+                    desc = "Expense"
+                category = auto_categorize(desc)
+                results.append({
+                    "amount": amt,
+                    "category": category,
+                    "description": desc.title(),
+                    "date": date_str
+                })
+            except (ValueError, TypeError):
+                continue
+    else:
+        bare_match = re.search(r'\b(?:spent|paid|bought|add)\s+([0-9]+(?:\.[0-9]+)?)\s+(?:on|for)\s+(.+)', msg, re.IGNORECASE)
+        if bare_match:
+            try:
+                amt = float(bare_match.group(1))
+                desc = bare_match.group(2).strip()
+                desc = re.sub(r'\b(?:yesterday|today)\b', '', desc, flags=re.IGNORECASE).strip()
+                category = auto_categorize(desc)
+                results.append({
+                    "amount": amt,
+                    "category": category,
+                    "description": desc.title() if desc else "Expense",
+                    "date": date_str
+                })
+            except (ValueError, TypeError):
+                pass
+
+    return results
 
 async def process_agent_message(
     db: Any,
