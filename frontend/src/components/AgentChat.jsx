@@ -250,7 +250,7 @@ export default function AgentChat({ isOpen, onClose, onDataMutated, initialMessa
         {
           id: (Date.now() + 1).toString(),
           sender: 'agent',
-          text: "⚠️ Sorry, I encountered an issue executing that request. Please try again.",
+          text: `⚠️ ${err.message || "Sorry, I encountered an issue executing that request. Please try again."}`,
           isError: true
         }
       ]);
