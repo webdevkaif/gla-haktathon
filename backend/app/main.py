@@ -84,10 +84,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for frontend development
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
+    allow_origin_regex=r"^https?://.*",
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -128,30 +128,66 @@ async def trigger_atlas_reconnect():
     from backend.app.database import reconnect_atlas_db
     return await reconnect_atlas_db()
 
-@app.get("/")
-async def root():
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi import HTTPException
+
+@app.get("/api")
+async def api_info():
     from backend.app.database import is_fallback_mode
     db_mode = "Local Fast-Engine (MongoDB API)" if is_fallback_mode else "MongoDB Atlas"
     db_status = "local_active" if is_fallback_mode else "atlas_connected"
     return {
-        "app": "Expense Pilot",
+        "app": "Expense Pilot API",
         "description": "Corporate Expense & Invoice Query Agent (Meridian Dev-C04)",
         "version": settings.VERSION,
         "status": "online",
         "database": db_mode,
         "database_name": settings.MONGODB_DB_NAME,
         "database_status": db_status,
-        "currency": settings.DEFAULT_CURRENCY,
-        "endpoints": [
-            "/api/users",
-            "/api/claims",
-            "/api/invoices",
-            "/api/approvals",
-            "/api/escalations",
-            "/api/audit",
-            "/api/audit/verify",
-            "/api/policies",
-            "/api/dashboard/summary",
-            "/api/agent/chat"
-        ]
+        "currency": settings.DEFAULT_CURRENCY
     }
+
+frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
+if frontend_dist.exists() and (frontend_dist / "index.html").exists():
+    if (frontend_dist / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="static_assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/") or full_path in ("api", "docs", "redoc", "openapi.json"):
+            raise HTTPException(status_code=404, detail="API route not found")
+        file_path = frontend_dist / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(frontend_dist / "index.html")
+else:
+    @app.get("/")
+    async def root():
+        from backend.app.database import is_fallback_mode
+        db_mode = "Local Fast-Engine (MongoDB API)" if is_fallback_mode else "MongoDB Atlas"
+        db_status = "local_active" if is_fallback_mode else "atlas_connected"
+        return {
+            "app": "Expense Pilot",
+            "description": "Corporate Expense & Invoice Query Agent (Meridian Dev-C04)",
+            "version": settings.VERSION,
+            "status": "online",
+            "database": db_mode,
+            "database_name": settings.MONGODB_DB_NAME,
+            "database_status": db_status,
+            "currency": settings.DEFAULT_CURRENCY,
+            "endpoints": [
+                "/api/users",
+                "/api/claims",
+                "/api/invoices",
+                "/api/approvals",
+                "/api/escalations",
+                "/api/audit",
+                "/api/audit/verify",
+                "/api/policies",
+                "/api/dashboard/summary",
+                "/api/agent/chat"
+            ]
+        }
