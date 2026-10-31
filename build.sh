@@ -13,3 +13,4 @@ npm run build
 cd ..
 
 echo "✅ Build complete! Frontend static assets generated in frontend/dist"
+
