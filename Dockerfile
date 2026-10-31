@@ -1,9 +1,9 @@
 # Stage 1: Build the React + Vite Frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 
-COPY frontend/package*.json ./
-RUN npm ci || npm install
+COPY frontend/package.json ./
+RUN npm install
 
 COPY frontend/ ./
 # Optional build arg if user provides custom API URL, otherwise defaults to relative /api
